@@ -1,9 +1,13 @@
 import aiohttp
+import requests
 import asyncio
 import os
 import platform
-import datetime
 import json
+import math
+from datetime import datetime, timezone
+from cosmetic import FortniteCosmetic
+from utils import bool_to_emoji
 
 # these tokens are used to authorize in epic games's API and let us do the skincheck without getting errors
 EPIC_API_SWITCH_TOKEN = "OThmN2U0MmMyZTNhNGY4NmE3NGViNDNmYmI0MWVkMzk6MGEyNDQ5YTItMDAxYS00NTFlLWFmZWMtM2U4MTI5MDFjNGQ3"
@@ -43,6 +47,21 @@ class EpicUser:
         self.acr = data.get("acr", "")
         self.auth_time = data.get("auth_time", "")
 
+class LockerData:
+    def __init__(self):
+        self.cosmetic_categories = {}
+        self.cosmetic_array = {}
+        self.unlocked_styles = {}
+        self.homebase_banners = {}
+
+    def to_dict(self):
+        return {
+            "cosmetic_categories": self.cosmetic_categories,
+            "cosmetic_array": self.cosmetic_array,
+            "unlocked_styles": self.unlocked_styles,
+            "homebase_banners": self.homebase_banners,
+        }
+    
 class EpicGenerator:
     def __init__(self) -> None:
         # init the generator
@@ -53,6 +72,9 @@ class EpicGenerator:
     async def start(self) -> None:
         self.http = aiohttp.ClientSession(headers={"User-Agent": self.user_agent})
         self.access_token = await self.get_access_token()
+
+    async def kill(self) -> None:
+        await self.http.close()
     
     async def get_access_token(self) -> str:
         # getting the access token from epic's api(REQUIRES usage of EPIC_API_SWITCH_TOKEN as Authorization in headers for it to work)
@@ -196,6 +218,8 @@ class EpicGenerator:
                 return []
             
             external_auths = await resp.json()
+            with open('dumps/external_auth.txt', 'w') as ext_file:
+                json.dump(external_auths, ext_file, indent=4)
 
         return external_auths
         
@@ -217,7 +241,7 @@ class EpicGenerator:
                 creation_date = datetime.strptime(creation_date, "%Y-%m-%dT%H:%M:%S.%fZ").strftime("%d/%m/%Y")
 
             account_info['creation_date'] = creation_date
-            account_info['externalAuths'] = await EpicGenerator.get_external_connections(self, user)
+            account_info['externalAuths'] = await self.get_external_connections(user)
 
         return account_info
     
@@ -238,7 +262,7 @@ class EpicGenerator:
         return profile_data
     
     async def get_friend_codes(self, user: EpicUser, platform: str) -> json:
-        # https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/v2/game/friendcodes/
+        # https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/v2/game/friendcodes/<accountID>/<platform>
         # gets the save the world redeem codes based on the platform you've entered
         # REQUIRES usage of user.access_token as Authorization in headers
         async with self.http.request(
@@ -250,3 +274,297 @@ class EpicGenerator:
         
         # this always returns some error, im not sure why.
         return codes_data
+    
+    async def get_locker_data(self, user: EpicUser) -> LockerData:
+        # gets locker arrays
+        # locker_categories - the locker categories we render
+        async with self.http.request(
+            method="POST",
+            url=f"https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/{user.account_id}/client/QueryProfile?profileId=athena",
+            headers={ 
+                "Authorization": f"bearer {user.access_token}", 
+                "Content-Type": "application/json" 
+            },
+            json={}
+        ) as resp:
+            athena_data = await resp.json() 
+            locker_data = LockerData()
+            exclusive_cosmetics = []
+            popular_cosmetics = []
+            if "profileChanges" not in athena_data:
+                return LockerData()
+            
+            try:
+                with open('exclusive.txt', 'r', encoding='utf-8') as f:
+                    exclusive_cosmetics = [i.strip() for i in f.readlines()]
+            except FileNotFoundError:
+                print("Warning: exclusive.txt not found.")
+            
+            try:
+                with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+                    popular_cosmetics = [i.strip() for i in f.readlines()]
+            except FileNotFoundError:
+                print("Warning: most_wanted.txt not found.")
+
+            # getting owned items list
+            for item_data in athena_data['profileChanges'][0]['profile']['items']:
+                item_template_id = athena_data['profileChanges'][0]['profile']['items'][item_data]['templateId']
+
+                # battle royale cosmetic
+                if item_template_id.startswith('Athena'):
+                    locker_category = item_template_id.split(':')[0]
+                    lowercase_cosmetic_id = item_template_id.split(':')[1]
+                    locker_data.unlocked_styles[lowercase_cosmetic_id] = []
+
+                    # special locker categories
+                    if 'AthenaExclusive' not in locker_data.cosmetic_categories:
+                        locker_data.cosmetic_categories['AthenaExclusive'] = []
+                        locker_data.cosmetic_array['AthenaExclusive'] = []
+                        locker_data.cosmetic_categories['AthenaExclusive'].append(lowercase_cosmetic_id)
+                    
+                    if 'AthenaPopular' not in locker_data.cosmetic_categories:
+                        locker_data.cosmetic_categories['AthenaPopular'] = []
+                        locker_data.cosmetic_array['AthenaPopular'] = []
+                        locker_data.cosmetic_categories['AthenaPopular'].append(lowercase_cosmetic_id)
+                    
+                    # save the world cosmetic
+                    if 'HomebaseBannerIcons' not in locker_data.cosmetic_categories:
+                        locker_data.cosmetic_categories['HomebaseBannerIcons'] = []
+                        locker_data.cosmetic_array['HomebaseBannerIcons'] = []
+                        locker_data.cosmetic_categories['HomebaseBannerIcons'].append(lowercase_cosmetic_id)
+
+                    # adding the categories found to the locker data for later
+                    if locker_category not in locker_data.cosmetic_categories:
+                        locker_data.cosmetic_categories[locker_category] = []
+                        locker_data.cosmetic_array[locker_category] = []
+
+                    # adding the cosmetic id itself to the locker categories
+                    locker_data.cosmetic_categories[locker_category].append(lowercase_cosmetic_id)
+
+            # listing the owned unlocked styles for each cosmetic
+            for item_id, item_data in athena_data['profileChanges'][0]['profile']['items'].items():
+                template_id = item_data.get('templateId', '')
+                if template_id.startswith('Athena'):
+                    lowercase_cosmetic_id = template_id.split(':')[1]
+
+                    # adding the cosmetic to the "unlocked styles"
+                    if lowercase_cosmetic_id not in locker_data.unlocked_styles:
+                        locker_data.unlocked_styles[lowercase_cosmetic_id] = []
+        
+                    attributes = item_data.get('attributes', {})
+                    variants = attributes.get('variants', [])
+                    for variant in variants:
+                        # adding the cosmetic's owned styles
+                        locker_data.unlocked_styles[lowercase_cosmetic_id].extend(variant.get('owned', []))
+
+            # getting banners
+            common_profile_data = await self.get_common_profile(user)
+            if common_profile_data:
+                # common profile found
+                for profileChange in common_profile_data["profileChanges"]:
+                    profile_items = profileChange["profile"]["items"]
+
+                    # checking every item
+                    for item_key, item_value in profile_items.items():
+                        cosmetic_template_id = item_value.get("templateId", "")
+                        if cosmetic_template_id:
+                            lowercase_banner_id = cosmetic_template_id.split(':')[1]
+                            # adding the banner to the owned banners list
+                            if lowercase_banner_id not in locker_data.homebase_banners:
+                                locker_data.homebase_banners[lowercase_banner_id] = []
+
+            # now lets handle cosmetic crap
+            for category in locker_data.cosmetic_categories:
+                if category == "AthenaPopular" or category == "AthenaExclusive":
+                    continue
+            
+                try:
+                    listoflists = []
+                    for _i in range(0, len(locker_data.cosmetic_categories[category]), 50):
+                        sublist = locker_data.cosmetic_categories[category][_i:_i+50]
+                        listoflists.append(sublist)
+
+                    for cosm in listoflists:
+                        cosmetic_by_id_data = requests.get('https://fortnite-api.com/v2/cosmetics/br/search/ids?language=en&id={}'.format('&id='.join(cosm)))
+                        for cosmetic_found in cosmetic_by_id_data.json()['data']:
+                            if category == 'AthenaDance':
+                                if cosmetic_found['type']['value'] != 'emote':
+                                    if cosmetic_found['id'] not in exclusive_cosmetics:
+                                        continue
+
+                            make_mythic = False
+                            if cosmetic_found['id'] in exclusive_cosmetics:
+                                make_mythic = True
+                                # Pink Ghoul Trooper
+                                if cosmetic_found['id'].lower() == 'cid_029_athena_commando_f_halloween':
+                                    make_mythic = False
+                                    if 'Mat3' in locker_data.unlocked_styles.get('cid_029_athena_commando_f_halloween', []):
+                                        make_mythic = True
+                            
+                                # Purple Skull Trooper
+                                if cosmetic_found['id'].lower() == 'cid_030_athena_commando_m_halloween':
+                                    make_mythic = False
+                                    if 'Mat1' in locker_data.unlocked_styles.get('cid_030_athena_commando_m_halloween', []):
+                                        make_mythic = True                            
+                            
+                                # Stage 5 Omega Lights
+                                if cosmetic_found['id'].lower() == 'cid_116_athena_commando_m_carbideblack':
+                                    make_mythic = False
+                                    if 'Stage5' in locker_data.unlocked_styles.get('cid_116_athena_commando_m_carbideblack', []):
+                                        make_mythic = True
+                                
+                                # Gold Midas
+                                if cosmetic_found['id'].lower() == 'cid_694_athena_commando_m_catburglar':
+                                    make_mythic = False
+                                    if 'Stage4' in locker_data.unlocked_styles.get('cid_694_athena_commando_m_catburglar', []):
+                                        make_mythic = True
+                            
+                                # Gold Meowscles
+                                if cosmetic_found['id'].lower() == 'cid_693_athena_commando_m_buffcat':
+                                    make_mythic = False
+                                    if 'Stage4' in locker_data.unlocked_styles.get('cid_693_athena_commando_m_buffcat', []):
+                                        make_mythic = True
+                            
+                                # Gold TNtina
+                                if cosmetic_found['id'].lower() == 'cid_691_athena_commando_f_tntina':
+                                    make_mythic = False
+                                    if 'Stage7' in locker_data.unlocked_styles.get('cid_691_athena_commando_f_tntina', []):
+                                        make_mythic = True
+                                    
+                                # Gold Skye
+                                if cosmetic_found['id'].lower() == 'cid_690_athena_commando_f_photographer':
+                                    make_mythic = False
+                                    if 'Stage4' in locker_data.unlocked_styles.get('cid_690_athena_commando_f_photographer', []):
+                                        make_mythic = True
+                                    
+                                # Gold Agent Peely
+                                if cosmetic_found['id'].lower() == 'cid_701_athena_commando_m_bananaagent':
+                                    make_mythic = False
+                                    if 'Stage4' in locker_data.unlocked_styles.get('cid_701_athena_commando_m_bananaagent', []):
+                                        make_mythic = True
+                            
+                                # World Cup Fishtick
+                                if cosmetic_found['id'].lower() == 'cid_315_athena_commando_m_teriyakifish':
+                                    make_mythic = False
+                                    if 'Stage3' in locker_data.unlocked_styles.get('cid_315_athena_commando_m_teriyakifish', []):
+                                        make_mythic = True
+                            
+                                # Mate Black Masterchief
+                                if cosmetic_found['id'].lower() == 'cid_971_athena_commando_m_jupiter_s0z6m':
+                                    make_mythic = False
+                                    if 'Mat2' in locker_data.unlocked_styles.get('cid_971_athena_commando_m_jupiter_s0z6m', []):
+                                        make_mythic = True
+                            
+                                if make_mythic == True:
+                                    cosmetic_found['rarity']['value'] = 'mythic'
+                            
+                            cosmetic_info = FortniteCosmetic()
+                            cosmetic_info.cosmetic_id = cosmetic_found['id']
+                            cosmetic_info.name = cosmetic_found['name']
+                            cosmetic_info.small_icon = cosmetic_found['images']['smallIcon']
+                            cosmetic_info.icon = cosmetic_found['images']['icon']
+                            cosmetic_info.backend_value = category
+                            cosmetic_info.rarity_value = cosmetic_found['rarity']['value']
+                            cosmetic_info.is_banner = False
+                            cosmetic_info.is_exclusive = make_mythic
+                            cosmetic_info.is_popular = cosmetic_found['id'] in popular_cosmetics
+                            cosmetic_info.unlocked_styles = locker_data.unlocked_styles[cosmetic_found['id'].lower()]
+
+                            if cosmetic_info.is_popular:
+                                locker_data.cosmetic_array['AthenaPopular'].append(cosmetic_info)
+                        
+                            locker_data.cosmetic_array[category].append(cosmetic_info) 
+                            
+                            # now exclusive
+                            if make_mythic:
+                                locker_data.cosmetic_array['AthenaExclusive'].append(cosmetic_info)
+
+                except Exception as e:
+                    continue
+
+
+            # handle banners
+            banners_data = requests.get('https://fortnite-api.com/v1/banners')
+            for fn_banner in banners_data.json()['data']:
+                banner_lower_id = fn_banner['id'].lower()
+                if banner_lower_id not in locker_data.homebase_banners:
+                    # banner isn't owned
+                    continue
+                    
+                make_mythic = False
+                icon = fn_banner['images']['icon']
+                rarity = 'uncommon'
+                if fn_banner['id'] in exclusive_cosmetics:
+                    rarity = 'mythic'
+                                    
+                # for future
+                cosmetic_info = FortniteCosmetic()
+                cosmetic_info.cosmetic_id = fn_banner['id']
+                cosmetic_info.name = fn_banner['devName']
+                cosmetic_info.small_icon = fn_banner['images']['smallIcon']
+                cosmetic_info.icon = fn_banner['images']['icon']
+                cosmetic_info.rarity_value = rarity
+                cosmetic_info.backend_value = 'HomebaseBannerIcons'
+                cosmetic_info.is_banner = True
+                cosmetic_info.is_exclusive = make_mythic
+                cosmetic_info.is_popular = fn_banner['id'] in popular_cosmetics
+                
+                locker_data.cosmetic_array['HomebaseBannerIcons'].append(cosmetic_info)      
+                
+                # now exclusive ones
+                if make_mythic:
+                    locker_data.cosmetic_array['AthenaExclusive'].append(cosmetic_info)
+
+            # sorting exclusives category
+            locker_data.cosmetic_array['AthenaExclusive'].sort(
+                key=lambda cosmetic: exclusive_cosmetics.index(cosmetic.cosmetic_id) 
+                if cosmetic.cosmetic_id in exclusive_cosmetics 
+                else float('inf')
+            )
+
+            # returning back the locker data
+        return locker_data
+    
+    async def get_seasons_message(self, user: EpicUser) -> str:
+        async with self.http.request(
+            method="POST",
+            url=f"https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/{user.account_id}/client/QueryProfile?profileId=athena",
+            headers={ 
+                "Authorization": f"bearer {user.access_token}", 
+                "Content-Type": "application/json" 
+            },
+            json={}
+        ) as resp:
+            athena_data = await resp.json()
+            past_seasons = {}
+            seasons_info = []
+            
+            # seasons infos
+            past_seasons = athena_data.get("profileChanges", [{}])[0].get("profile", {}).get("stats", {}).get("attributes", {}).get("past_seasons", [])
+            total_wins = sum(season.get("numWins", 0) for season in past_seasons)
+            total_matches = sum(
+                season.get("numHighBracket", 0) + season.get("numLowBracket", 0) + 
+                season.get("numHighBracket_LTM", 0) + season.get("numLowBracket_LTM", 0) + 
+                season.get("numHighBracket_Ar", 0) + season.get("numLowBracket_Ar", 0) 
+                for season in past_seasons
+            )
+
+            curses = athena_data['profileChanges'][0]['profile']['stats']['attributes']
+            cursesinfo = {
+                'level': curses.get('level', 1),
+                'book_level': curses.get('book_level', 1)
+            }
+            
+            for season in past_seasons:
+                seasons_info.append(f"""
+#️⃣Season {season.get('seasonNumber', 1)}
+› Level: {season.get('seasonLevel', '1')}
+› Battle Pass: {bool_to_emoji(season.get('purchasedVIP', False))}
+› Wins: {season.get('numWins', 0)}
+            """)
+
+            seasons_info_embeds = seasons_info
+            seasons_info_message = "Previous Seasons History:\n" + "\n".join(seasons_info_embeds)
+            seasons_info_message += f"\nCurrent Season:\n› Level: {cursesinfo['level']}\n› Battle Pass Level: {cursesinfo['book_level']}"
+
+        return seasons_info_message

@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 from epic_auth import EpicUser, EpicGenerator, EpicEndpoints
 from user import RiftUser
 from cosmetic import FortniteCosmetic
-from commands import command_start, command_help, command_login, command_style, send_style_message, available_styles, avaliable_badges
+from commands import command_start, command_help, command_login, command_style, command_badges, send_style_message, send_badges_message, available_styles, avaliable_badges
 
 import epic_auth
 import cosmetic
@@ -21,8 +21,6 @@ import utils
 
 # your telegram bot's api token
 TELEGRAM_API_TOKEN = ""
-# your discord bot's token
-DISCORD_BOT_TOKEN = ""
 
 # locker categories we render in the checker
 telegram_bot = telebot.TeleBot(TELEGRAM_API_TOKEN)
@@ -31,7 +29,8 @@ telegram_bot.set_my_commands([
     telebot.types.BotCommand("/start", "Setup your user to start skinchecking."),
     telebot.types.BotCommand("/help", "Display Basic Info and the commands."),
     telebot.types.BotCommand("/login", "Skincheck your Epic Games account."),
-    telebot.types.BotCommand("/style", "Customize your checker's style.")
+    telebot.types.BotCommand("/style", "Customize your checker's style."),
+    telebot.types.BotCommand("/badges", "Toggle your owned badges.")
 ])
 
 auth_code = None
@@ -51,15 +50,19 @@ def handle_login(message):
 def handle_style(message):
     asyncio.run(command_style(telegram_bot, message))
 
+@telegram_bot.message_handler(commands=['badges'])
+def handle_badges(message):
+    asyncio.run(command_badges(telegram_bot, message))
+
 @telegram_bot.callback_query_handler(func=lambda call: call.data.startswith("style_") or call.data.startswith("select_"))
 def handle_style_navigation(call):
     data = call.data
-    user = RiftUser(call.message)
+    user = RiftUser(call.from_user.id, call.from_user.username)
+    user_data = user.load_data()
 
-    user_data = user.load_data(call.message)
     if not user_data:
         telegram_bot.reply_to(call.message, "You haven't setup your user yet, please use /start before skinchecking!")
-        return 
+        return
     
     if data.startswith("style_"):
         new_index = int(data.split("_")[1])
@@ -72,6 +75,32 @@ def handle_style_navigation(call):
         user_data['style'] = selected_style['ID']
         user.update_data()
         telegram_bot.send_message(call.message.chat.id, f"✅ Style {selected_style['name']} selected.")
+
+@telegram_bot.callback_query_handler(func=lambda call: call.data.startswith("badge_") or call.data.startswith("toggle_"))
+def handle_badge_navigation(call):
+    data = call.data
+    user = RiftUser(call.from_user.id, call.from_user.username)
+    user_data = user.load_data()
+
+    if not user_data:
+        telegram_bot.reply_to(call.message, "You haven't setup your user yet, please use /start before skinchecking!")
+        return
+    
+    if data.startswith("badge_"):
+        new_index = int(data.split("_")[1])
+        telegram_bot.delete_message(call.message.chat.id, call.message.message_id)
+        send_badges_message(telegram_bot, call.message.chat.id, new_index, user_data)
+
+    elif data.startswith("toggle_"):
+        badge_index = int(data.split("_")[1])
+        badge = avaliable_badges[badge_index]
+        current_status = user_data.get(badge['data2'], False)
+        user_data[badge['data2']] = not current_status
+
+        user.update_data()
+        telegram_bot.answer_callback_query(call.id, f"{badge['name']} is now {'Enabled' if not current_status else 'Disabled'}!")
+        telegram_bot.delete_message(call.message.chat.id, call.message.message_id)
+        send_badges_message(telegram_bot, call.message.chat.id, badge_index, user_data)
 
 print("starting rift checker...")          
 if __name__ == '__main__':

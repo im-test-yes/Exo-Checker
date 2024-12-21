@@ -4,7 +4,6 @@ class FortniteCosmetic:
         self.name = ""
         self.backend_value = "AthenaCharacter"
         self.rarity_value = "common"
-        self.icon = ""
         self.small_icon = ""
         self.is_banner = False
         self.unlocked_styles = {}
@@ -17,7 +16,6 @@ class FortniteCosmetic:
             "name": self.name,
             "backend_value": self.backend_value,
             "rarity_value": self.rarity_value,
-            "icon": self.icon,
             "small_icon": self.small_icon,
             "is_banner": self.is_banner,
             "unlocked_styles": self.unlocked_styles,

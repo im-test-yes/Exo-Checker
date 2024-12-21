@@ -8,25 +8,25 @@ from telebot import types
 TELEGRAM_USER_DATA_VERSION = 0
 
 class RiftUser:
-    def __init__(self, message):
-        self.userID: int = message.from_user.id
-        self.username: str = message.from_user.username
+    def __init__(self, userID: int, username: str):
+        self.userID: int = userID
+        self.username: str = username
         self.user_data: json = {}
 
-    def register(self, message) -> json:
-        telegram_user_id = message.from_user.id
-        user_path = f"users/{telegram_user_id}.json"  
+    def register(self) -> dict:
+        user_path = f"users/{self.userID}.json"  
         if os.path.exists(user_path):
             # user is already registered
             return {}
         
         os.makedirs(os.path.dirname(user_path), exist_ok=True)
         self.user_data = {
-            'ID': telegram_user_id,
-            'username': message.from_user.username,
+            'ID': self.userID,
+            'username': self.username,
             'version': TELEGRAM_USER_DATA_VERSION,
             'accounts_checked': 0,
             'style': 0,
+            'gradient_type': 0,
             'alpha_tester_1_badge': False,
             'alpha_tester_2_badge': False,
             'alpha_tester_3_badge': False,
@@ -46,9 +46,9 @@ class RiftUser:
         
         return self.user_data
 
-    def load_data(self, message) -> json:
+    def load_data(self) -> dict:
         # loading the telegram user profile's stats
-        user_path = f"users/{message.from_user.id}.json"
+        user_path = f"users/{self.userID}.json"
         if not os.path.exists(user_path):
             # profile not found
             return {}

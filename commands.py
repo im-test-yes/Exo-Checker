@@ -2,13 +2,76 @@ import os
 from PIL import Image, ImageDraw, ImageFont
 import json
 import user
+import colorsys
 import logging
+import math
+import urllib.request
 from datetime import datetime
+from io import BytesIO
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import mask_email, mask_account_id, bool_to_emoji, country_to_flag
 from user import RiftUser
+from cosmetic import FortniteCosmetic
 from epic_auth import EpicUser, EpicEndpoints, EpicGenerator, LockerData
 
+
+
+class FortniteCache:
+    def __init__(self):
+        self.cache = {}
+        self.cache_dir = "cache"
+        if not os.path.exists(self.cache_dir):
+            os.makedirs(self.cache_dir)
+        
+        self.load_cache_from_directory()
+        
+    def load_cache_from_directory(self):
+        for filename in os.listdir(self.cache_dir):
+            if filename.endswith(".png"):
+                id = os.path.splitext(filename)[0]
+                file_path = os.path.join(self.cache_dir, filename)
+                try:
+                    image = Image.open(file_path).convert('RGBA')
+                    self.cache[id] = image
+                except Exception as e:
+                    continue
+                    
+    def get_cosmetic_icon_from_cache(self, url, id):
+        if not url:
+            print(f"Error: No URL provided for ID: {id}")
+            return None
+        
+        cache_path = os.path.join(self.cache_dir, f"{id}.png")
+        if id in self.cache:
+            return self.cache[id]
+
+        if os.path.exists(cache_path):
+            # getting the icon from filesystem
+            try:
+                image = Image.open(cache_path).convert('RGBA')
+                self.cache[id] = image
+                return image
+            except Exception as e:
+                print(f"Error loading {cache_path}: {e}")
+
+        try:
+            # downloading the icon from url
+            with urllib.request.urlopen(url) as response:
+                image_data = response.read()
+                image = Image.open(BytesIO(image_data)).convert('RGBA')
+                try:
+                    image.save(cache_path)
+                except Exception as e:
+                    print(f"Error saving {cache_path}: {e}")
+                
+                self.cache[id] = image
+                return image 
+        except Exception as e:
+            print(f"Error downloading image from {url}: {e}")
+            return None
+
+# global members
+fortnite_cache = FortniteCache()
 
 available_styles = [
     {"ID": 0, "name": "Rift", "image": "img/styles/rift.png"},
@@ -19,19 +82,837 @@ available_styles = [
 ]
 
 avaliable_badges = [
-    {"name": "Alpha Tester 1", "data": "alpha_tester_1_badge", "data2": "alpha_tester_1_badge_active", "image": "img/badges/icon/alpha1.png"},
-    {"name": "Alpha Tester 2", "data": "alpha_tester_2_badge", "data2": "alpha_tester_2_badge_active", "image": "img/badges/icon/alpha2.png"},
-    {"name": "Alpha Tester 3", "data": "alpha_tester_3_badge", "data2": "alpha_tester_3_badge_active", "image": "img/badges/icon/alpha3.png"}
+    {"name": "Alpha Tester 1", "data": "alpha_tester_1_badge", "data2": "alpha_tester_1_badge_active", "image": "badges/icon/alpha1.png"},
+    {"name": "Alpha Tester 2", "data": "alpha_tester_2_badge", "data2": "alpha_tester_2_badge_active", "image": "badges/icon/alpha2.png"},
+    {"name": "Alpha Tester 3", "data": "alpha_tester_3_badge", "data2": "alpha_tester_3_badge_active", "image": "badges/icon/alpha3.png"},
+    {"name": "Epic Games", "data": "epic_badge", "data2": "epic_badge_active", "image": "badges/icon/epic.png"}
 ]
 
 locker_categories = ['AthenaCharacter', 'AthenaBackpack', 'AthenaPickaxe', 'AthenaDance', 'AthenaGlider', 'AthenaPopular', 'AthenaExclusive']
+# global members
 
+
+
+def draw_gradient_text(gradient_type, draw, position, text, font, fill=(255, 255, 255)):
+    """
+    Draw text with a rainbow gradient at a given position.
+    
+    :param gradient_type: The gradient we use to render the text as.
+    :param draw: ImageDraw object to draw on.
+    :param position: Tuple (x, y) of the position where the text starts.
+    :param text: Text to draw.
+    :param font: Font object to use for the text.
+    :param fill: the color in RGB in base to draw
+    """
+    
+    num_colors = len(text)
+    if gradient_type == 0:
+        # white text(no gradient)
+        gradient_colors = [(255, 255, 255)] * num_colors
+        
+    elif gradient_type == 1:
+        # rainbow gradient
+        gradient_colors = [
+            tuple(int(c * 255) for c in colorsys.hsv_to_rgb(i / num_colors, 1, 1))
+            for i in range(num_colors)
+        ]
+        
+    elif gradient_type == 2:
+        # golden gradient
+        gradient_colors = [
+            tuple(int(c * 255) for c in colorsys.hsv_to_rgb(0.13, 0.5 + (i / num_colors) * 0.5, 0.8 + (i / num_colors) * 0.2))
+            for i in range(num_colors)
+        ]
+        
+    elif gradient_type == 3:
+        # silver gradient
+        gradient_colors = [
+            tuple(int(c * 255) for c in colorsys.hsv_to_rgb(0, 0 + (i / num_colors) * 0.2, 0.6 + (i / num_colors) * 0.4))
+            for i in range(num_colors)
+        ]
+    
+    x, y = position
+    for i, char in enumerate(text):
+        color = gradient_colors[i]
+        char_width = font.getbbox(char)[2]
+        draw.text((x, y), char, font=font, fill=color)
+        x += char_width
+
+
+def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+    # calculating cosmetics per row
+    cosmetic_per_row = 6
+    total_cosmetics = len(arr)
+    num_rows = math.ceil(total_cosmetics / cosmetic_per_row)
+    if total_cosmetics > 30:
+        num_rows = int(math.sqrt(total_cosmetics))
+        cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+        
+        while cosmetic_per_row * num_rows < total_cosmetics:
+            num_rows += 1
+            cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+
+    # setup for our image, thumbnails
+    padding = 30
+    thumbnail_width = 128
+    thumbnail_height = 128
+    image_width = int(cosmetic_per_row * thumbnail_width)
+    image_height = int(thumbnail_height + 5 + thumbnail_width * num_rows + 180)
+    font_path = 'styles/rift/font.ttf'
+    font_size = 16
+    font = ImageFont.truetype(font_path, font_size)
+    image = Image.new('RGB', (image_width, image_height), (0, 0, 0))
+
+    current_row = 0
+    current_column = 0
+    sortarray = ['mythic', 'legendary', 'dark', 'slurp', 'starwars', 'marvel', 'lava', 'frozen', 'gaminglegends', 'shadow', 'icon', 'dc', 'epic', 'rare', 'uncommon', 'common']
+    arr.sort(key=lambda x: sortarray.index(x.rarity_value))
+
+    # had some issues with exclusives rendering in wrong order, so i'm sorting them
+    try:
+        with open('exclusive.txt', 'r', encoding='utf-8') as f:
+            exclusive_cosmetics = [i.strip() for i in f.readlines()]
+        
+        with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+            popular_cosmetics = [i.strip() for i in f.readlines()]
+    except FileNotFoundError:
+        print("Error: 'exclusive.txt' or 'most_wanted.txt' not found.")
+        exclusive_cosmetics = []
+        popular_cosmetics = []
+
+    mythic_items = [item for item in arr if item.rarity_value == 'mythic']
+    other_items = [item for item in arr if item.rarity_value != 'mythic']
+    mythic_items.sort(
+        key=lambda x: exclusive_cosmetics.index(x.cosmetic_id) 
+        if x.cosmetic_id in exclusive_cosmetics else float('inf')
+    )
+        
+    if header == "Popular":
+        other_items.sort(
+            key=lambda x: popular_cosmetics.index(x.cosmetic_id) 
+            if x.cosmetic_id in popular_cosmetics else float('inf')
+        )
+        
+    arr = mythic_items + other_items
+    draw = ImageDraw.Draw(image)
+
+    # top
+    icon_logo = Image.open(f'cosmetic_icons/{header}.png')
+    icon_logo.thumbnail((thumbnail_width, thumbnail_height))
+    image.paste(icon_logo, (5, 0), mask=icon_logo)
+    draw.text((thumbnail_width + 8, 10), '{}'.format(len(arr)), font=ImageFont.truetype(font_path, 70), fill=(255, 255, 255))
+    draw.text((thumbnail_width + 8, 78), '{}'.format(header), font=ImageFont.truetype(font_path, 40), fill=(200, 200, 200))
+        
+    special_items = {
+        "CID_029_Athena_Commando_F_Halloween": "cache/pink_ghoul.png",
+        "CID_030_Athena_Commando_M_Halloween": "cache/purple_skull.png",
+        "CID_116_Athena_Commando_M_CarbideBlack": "cache/omega_max.png",
+        "CID_694_Athena_Commando_M_CatBurglar": "cache/gold_midas.png",
+        "CID_693_Athena_Commando_M_BuffCat": "cache/gold_cat.png",
+        "CID_691_Athena_Commando_F_TNTina": "cache/gold_tntina.png",
+        "CID_690_Athena_Commando_F_Photographer": "cache/gold_skye.png",
+        "CID_701_Athena_Commando_M_BananaAgent": "cache/gold_peely.png",
+        "CID_315_Athena_Commando_M_TeriyakiFish": "cache/worldcup_fish.png",
+        "CID_971_Athena_Commando_M_Jupiter_S0Z6M": "cache/black_masterchief.png"
+    }
+        
+    for cosmetic in arr:
+        special_icon = False
+        is_banner = cosmetic.is_banner
+        photo = None
+        if cosmetic.rarity_value.lower() == "mythic" and cosmetic.cosmetic_id in special_items:
+            special_icon = True
+            icon_path = special_items[cosmetic.cosmetic_id]
+            if os.path.exists(icon_path):
+                try:
+                    photo = Image.open(icon_path)
+                except Exception as e:
+                    special_icon = False
+            else:
+                special_icon = False
+        else:
+            photo = fortnite_cache.get_cosmetic_icon_from_cache(cosmetic.small_icon, cosmetic.cosmetic_id)
+            
+        if is_banner:
+            scaled_width = int(photo.width * 1.5)
+            scaled_height = int(photo.height * 1.5)
+            photo = photo.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+            x_offset = 32
+            y_offset = 10
+                
+            new_img = Image.open(f'styles/rift/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img.paste(photo, (x_offset, y_offset), mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+        else:
+            new_img = Image.open(f'styles/rift/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img.paste(photo, mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+
+        # black box for cosmetic name
+        box = Image.new('RGBA', (128, 28), (0, 0, 0, 100))
+        photo.paste(box, (0, new_img.size[1] - 28), mask=box)
+            
+        if header != "Exclusives" and cosmetic.cosmetic_id in popular_cosmetics:
+            star_image = Image.open('cosmetic_icons/WantedStar.png').resize((128, 128), Image.BILINEAR)
+            photo.paste(star_image, (0, 0), star_image.convert("RGBA"))
+
+        x = thumbnail_width * current_column
+        y = thumbnail_width + thumbnail_height * current_row
+        image.paste(photo, (x, y))
+
+        name = cosmetic.name.upper()
+        max_text_width = thumbnail_width - 10
+        max_text_height = 20
+            
+        # fixed font size
+        font_size = 16
+        offset = 9
+        while True:
+            font = ImageFont.truetype(font_path, font_size)
+            bbox = draw.textbbox((0, 0), name, font=font)
+            name_width = bbox[2] - bbox[0]
+            name_height = bbox[3] - bbox[1]
+
+            if name_width > max_text_width or name_height > max_text_height:
+                font_size -= 1
+                offset += 0.5
+            else:
+                break
+
+        # cosmetic name
+        bbox = draw.textbbox((0, 0), name, font=font)
+        name_width = bbox[2] - bbox[0]
+        draw.text((x + (thumbnail_width - name_width) // 2, y + (thumbnail_height - padding + offset)), name, font=font, fill=(255, 255, 255))
+            
+        # make the cosmetics show ordered in rows(cosmetic_per_row is hardcoded)
+        current_column += 1
+        if current_column >= cosmetic_per_row:
+            current_row += 1
+            current_column = 0
+
+    # footer
+    current_date = datetime.now().strftime('%B %d, %Y')
+    logo = Image.open('img/logo.png')
+    image.paste(logo, (10, image_height - 165), mask=logo)
+
+    draw.text((170, image_height - 40 * 3 - 28), '{}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))   
+    draw_gradient_text(user_data['gradient_type'], draw, (170, image_height - 40 * 2 - 28), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40))
+        
+    # badges
+    font_size = 40
+    font = ImageFont.truetype(font_path, font_size)
+    username_width = font.getbbox(f"@{user_data['username']}")[2]
+    offset_badge = 170 + username_width + 8
+
+    if user_data['epic_badge_active'] == True and user_data['epic_badge'] == True:
+        # epic games badge(special people only)
+        alpha_badge = Image.open('badges/epic.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+
+    if user_data['alpha_tester_3_badge_active'] == True and user_data['alpha_tester_3_badge'] == True:
+        # alpha tester 3 badge
+        alpha_badge = Image.open('badges/alpha3.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_2_badge_active'] == True and user_data['alpha_tester_2_badge'] == True:
+        # alpha tester 2 badge
+        alpha_badge = Image.open('badges/alpha2.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_1_badge_active'] == True and user_data['alpha_tester_1_badge'] == True:
+        # alpha tester 1 badge
+        alpha_badge = Image.open('badges/alpha1.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    image.save(nametosave)
+
+def render_raika_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+    # calculating cosmetics per row
+    cosmetic_per_row = 6
+    total_cosmetics = len(arr)
+    num_rows = math.ceil(total_cosmetics / cosmetic_per_row)
+    if total_cosmetics > 30:
+        num_rows = int(math.sqrt(total_cosmetics))
+        cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+        
+        while cosmetic_per_row * num_rows < total_cosmetics:
+            num_rows += 1
+            cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+
+    # setup for our image, thumbnails
+    padding = 30
+    thumbnail_width = 128
+    thumbnail_height = 128
+    image_width = int(cosmetic_per_row * thumbnail_width)
+    image_height = int(thumbnail_height + 5 + thumbnail_width * num_rows + 180)
+    font_path = 'styles/raika/font.ttf'
+    font_size = 16
+    font = ImageFont.truetype(font_path, font_size)
+    image = Image.new('RGB', (image_width, image_height), (0, 0, 0))
+
+    current_row = 0
+    current_column = 0
+    sortarray = ['mythic', 'legendary', 'dark', 'slurp', 'starwars', 'marvel', 'lava', 'frozen', 'gaminglegends', 'shadow', 'icon', 'dc', 'epic', 'rare', 'uncommon', 'common']
+    arr.sort(key=lambda x: sortarray.index(x.rarity_value))
+
+    # had some issues with exclusives rendering in wrong order, so i'm sorting them
+    try:
+        with open('exclusive.txt', 'r', encoding='utf-8') as f:
+            exclusive_cosmetics = [i.strip() for i in f.readlines()]
+        
+        with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+            popular_cosmetics = [i.strip() for i in f.readlines()]
+    except FileNotFoundError:
+        print("Error: 'exclusive.txt' or 'most_wanted.txt' not found.")
+        exclusive_cosmetics = []
+        popular_cosmetics = []
+
+    mythic_items = [item for item in arr if item.rarity_value == 'mythic']
+    other_items = [item for item in arr if item.rarity_value != 'mythic']
+    mythic_items.sort(
+        key=lambda x: exclusive_cosmetics.index(x.cosmetic_id) 
+        if x.cosmetic_id in exclusive_cosmetics else float('inf')
+    )
+        
+    if header == "Popular":
+        other_items.sort(
+            key=lambda x: popular_cosmetics.index(x.cosmetic_id) 
+            if x.cosmetic_id in popular_cosmetics else float('inf')
+        )
+        
+    arr = mythic_items + other_items
+    draw = ImageDraw.Draw(image)
+
+    # top
+    icon_logo = Image.open(f'cosmetic_icons/{header}.png')
+    icon_logo.thumbnail((thumbnail_width, thumbnail_height))
+    image.paste(icon_logo, (5, 0), mask=icon_logo)
+    draw.text((thumbnail_width + 8, 10), '{}'.format(len(arr)), font=ImageFont.truetype(font_path, 70), fill=(255, 255, 255))
+    draw.text((thumbnail_width + 8, 78), '{}'.format(header), font=ImageFont.truetype(font_path, 40), fill=(200, 200, 200))
+        
+    special_items = {
+        "CID_029_Athena_Commando_F_Halloween": "cache/pink_ghoul.png",
+        "CID_030_Athena_Commando_M_Halloween": "cache/purple_skull_old.png",
+        "CID_116_Athena_Commando_M_CarbideBlack": "cache/omega_max.png",
+        "CID_694_Athena_Commando_M_CatBurglar": "cache/gold_midas.png",
+        "CID_693_Athena_Commando_M_BuffCat": "cache/gold_cat.png",
+        "CID_691_Athena_Commando_F_TNTina": "cache/gold_tntina.png",
+        "CID_690_Athena_Commando_F_Photographer": "cache/gold_skye.png",
+        "CID_701_Athena_Commando_M_BananaAgent": "cache/gold_peely.png",
+        "CID_315_Athena_Commando_M_TeriyakiFish": "cache/worldcup_fish.png",
+        "CID_971_Athena_Commando_M_Jupiter_S0Z6M": "cache/black_masterchief.png"
+    }
+        
+    for cosmetic in arr:
+        special_icon = False
+        is_banner = cosmetic.is_banner
+        photo = None
+        if cosmetic.rarity_value.lower() == "mythic" and cosmetic.cosmetic_id in special_items:
+            special_icon = True
+            icon_path = special_items[cosmetic.cosmetic_id]
+            if os.path.exists(icon_path):
+                try:
+                    photo = Image.open(icon_path)
+                except Exception as e:
+                    special_icon = False
+            else:
+                special_icon = False
+        else:
+            photo = fortnite_cache.get_cosmetic_icon_from_cache(cosmetic.small_icon, cosmetic.cosmetic_id)
+            
+        if is_banner:
+            scaled_width = int(photo.width * 1.5)
+            scaled_height = int(photo.height * 1.5)
+            photo = photo.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+            x_offset = 32
+            y_offset = 10
+                
+            new_img = Image.open(f'styles/raika/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img.paste(photo, (x_offset, y_offset), mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+        else:
+            new_img = Image.open(f'styles/raika/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img.paste(photo, mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+
+        # black box for cosmetic name
+        box = Image.new('RGBA', (128, 28), (0, 0, 0, 100))
+        photo.paste(box, (0, new_img.size[1] - 28), mask=box)
+            
+        if header != "Exclusives" and cosmetic.cosmetic_id in popular_cosmetics:
+            star_image = Image.open('cosmetic_icons/WantedStar.png').resize((128, 128), Image.BILINEAR)
+            photo.paste(star_image, (0, 0), star_image.convert("RGBA"))
+
+        x = thumbnail_width * current_column
+        y = thumbnail_width + thumbnail_height * current_row
+        image.paste(photo, (x, y))
+
+        name = cosmetic.name.upper()
+        max_text_width = thumbnail_width - 10
+        max_text_height = 20
+            
+        # fixed font size
+        font_size = 16
+        offset = 9
+        while True:
+            font = ImageFont.truetype(font_path, font_size)
+            bbox = draw.textbbox((0, 0), name, font=font)
+            name_width = bbox[2] - bbox[0]
+            name_height = bbox[3] - bbox[1]
+
+            if name_width > max_text_width or name_height > max_text_height:
+                font_size -= 1
+                offset += 0.5
+            else:
+                break
+
+        # cosmetic name
+        bbox = draw.textbbox((0, 0), name, font=font)
+        name_width = bbox[2] - bbox[0]
+        draw.text((x + (thumbnail_width - name_width) // 2, y + (thumbnail_height - padding + offset)), name, font=font, fill=(255, 255, 255))
+            
+        # make the cosmetics show ordered in rows(cosmetic_per_row is hardcoded)
+        current_column += 1
+        if current_column >= cosmetic_per_row:
+            current_row += 1
+            current_column = 0
+
+    # footer
+    current_date = datetime.now().strftime('%B %d, %Y')
+    logo = Image.open('img/logo.png')
+    image.paste(logo, (10, image_height - 165), mask=logo)
+
+    draw.text((170, image_height - 40 * 3 - 28), '{}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))   
+    draw_gradient_text(user_data['gradient_type'], draw, (170, image_height - 40 * 2 - 28), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40))
+        
+    # badges
+    font_size = 40
+    font = ImageFont.truetype(font_path, font_size)
+    username_width = font.getbbox(f"@{user_data['username']}")[2]
+    offset_badge = 170 + username_width + 8
+
+    if user_data['epic_badge_active'] == True and user_data['epic_badge'] == True:
+        # epic games badge(special people only)
+        alpha_badge = Image.open('badges/epic.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+
+    if user_data['alpha_tester_3_badge_active'] == True and user_data['alpha_tester_3_badge'] == True:
+        # alpha tester 3 badge
+        alpha_badge = Image.open('badges/alpha3.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_2_badge_active'] == True and user_data['alpha_tester_2_badge'] == True:
+        # alpha tester 2 badge
+        alpha_badge = Image.open('badges/alpha2.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_1_badge_active'] == True and user_data['alpha_tester_1_badge'] == True:
+        # alpha tester 1 badge
+        alpha_badge = Image.open('badges/alpha1.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    image.save(nametosave)
+    
+def render_kayy_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+    # calculating cosmetics per row
+    cosmetic_per_row = 6
+    total_cosmetics = len(arr)
+    num_rows = math.ceil(total_cosmetics / cosmetic_per_row)
+    if total_cosmetics > 30:
+        num_rows = int(math.sqrt(total_cosmetics))
+        cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+        
+        while cosmetic_per_row * num_rows < total_cosmetics:
+            num_rows += 1
+            cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+
+    # setup for our image, thumbnails
+    padding = 30
+    thumbnail_width = 128
+    thumbnail_height = 128
+    image_width = int(cosmetic_per_row * thumbnail_width)
+    image_height = int(thumbnail_width * num_rows + 180)
+    font_path = 'styles/kayy/font.ttf'
+    font_size = 16
+    font = ImageFont.truetype(font_path, font_size)
+    image = Image.new('RGB', (image_width, image_height), (0, 0, 0))
+
+    current_row = 0
+    current_column = 0
+    sortarray = ['mythic', 'legendary', 'dark', 'slurp', 'starwars', 'marvel', 'lava', 'frozen', 'gaminglegends', 'shadow', 'icon', 'dc', 'epic', 'rare', 'uncommon', 'common']
+    arr.sort(key=lambda x: sortarray.index(x.rarity_value))
+
+    # had some issues with exclusives rendering in wrong order, so i'm sorting them
+    try:
+        with open('exclusive.txt', 'r', encoding='utf-8') as f:
+            exclusive_cosmetics = [i.strip() for i in f.readlines()]
+        
+        with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+            popular_cosmetics = [i.strip() for i in f.readlines()]
+    except FileNotFoundError:
+        print("Error: 'exclusive.txt' or 'most_wanted.txt' not found.")
+        exclusive_cosmetics = []
+        popular_cosmetics = []
+
+    mythic_items = [item for item in arr if item.rarity_value == 'mythic']
+    other_items = [item for item in arr if item.rarity_value != 'mythic']
+    mythic_items.sort(
+        key=lambda x: exclusive_cosmetics.index(x.cosmetic_id) 
+        if x.cosmetic_id in exclusive_cosmetics else float('inf')
+    )
+        
+    if header == "Popular":
+        other_items.sort(
+            key=lambda x: popular_cosmetics.index(x.cosmetic_id) 
+            if x.cosmetic_id in popular_cosmetics else float('inf')
+        )
+        
+    arr = mythic_items + other_items
+    draw = ImageDraw.Draw(image)
+
+    special_items = {
+        "CID_029_Athena_Commando_F_Halloween": "cache/pink_ghoul.png",
+        "CID_030_Athena_Commando_M_Halloween": "cache/purple_skull_old.png",
+        "CID_116_Athena_Commando_M_CarbideBlack": "cache/omega_max.png",
+        "CID_694_Athena_Commando_M_CatBurglar": "cache/gold_midas.png",
+        "CID_693_Athena_Commando_M_BuffCat": "cache/gold_cat.png",
+        "CID_691_Athena_Commando_F_TNTina": "cache/gold_tntina.png",
+        "CID_690_Athena_Commando_F_Photographer": "cache/gold_skye.png",
+        "CID_701_Athena_Commando_M_BananaAgent": "cache/gold_peely.png",
+        "CID_315_Athena_Commando_M_TeriyakiFish": "cache/worldcup_fish.png",
+        "CID_971_Athena_Commando_M_Jupiter_S0Z6M": "cache/black_masterchief.png"
+    }
+        
+    for cosmetic in arr:
+        special_icon = False
+        is_banner = cosmetic.is_banner
+        photo = None
+        if cosmetic.rarity_value.lower() == "mythic" and cosmetic.cosmetic_id in special_items:
+            special_icon = True
+            icon_path = special_items[cosmetic.cosmetic_id]
+            if os.path.exists(icon_path):
+                try:
+                    photo = Image.open(icon_path)
+                except Exception as e:
+                    special_icon = False
+            else:
+                special_icon = False
+        else:
+            photo = fortnite_cache.get_cosmetic_icon_from_cache(cosmetic.small_icon, cosmetic.cosmetic_id)
+            
+        if is_banner:
+            scaled_width = int(photo.width * 1.5)
+            scaled_height = int(photo.height * 1.5)
+            photo = photo.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+            x_offset = 32
+            y_offset = 10
+                
+            new_img = Image.open(f'styles/kayy/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img.paste(photo, (x_offset, y_offset), mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+        else:
+            new_img = Image.open(f'styles/kayy/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img.paste(photo, mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+
+        # black box for cosmetic name
+        box = Image.new('RGBA', (128, 28), (0, 0, 0, 100))
+        photo.paste(box, (0, new_img.size[1] - 28), mask=box)
+            
+        if header != "Exclusives" and cosmetic.cosmetic_id in popular_cosmetics:
+            star_image = Image.open('cosmetic_icons/WantedStar.png').resize((128, 128), Image.BILINEAR)
+            photo.paste(star_image, (0, 0), star_image.convert("RGBA"))
+
+        x = thumbnail_width * current_column
+        y = thumbnail_height * current_row
+        image.paste(photo, (x, y))
+
+        name = cosmetic.name.upper()
+        max_text_width = thumbnail_width - 10
+        max_text_height = 20
+            
+        # fixed font size
+        font_size = 16
+        offset = 9
+        while True:
+            font = ImageFont.truetype(font_path, font_size)
+            bbox = draw.textbbox((0, 0), name, font=font)
+            name_width = bbox[2] - bbox[0]
+            name_height = bbox[3] - bbox[1]
+
+            if name_width > max_text_width or name_height > max_text_height:
+                font_size -= 1
+                offset += 0.5
+            else:
+                break
+
+        # cosmetic name
+        bbox = draw.textbbox((0, 0), name, font=font)
+        name_width = bbox[2] - bbox[0]
+        draw.text((x + (thumbnail_width - name_width) // 2, y + (thumbnail_height - padding + offset)), name, font=font, fill=(255, 255, 255))
+            
+        # make the cosmetics show ordered in rows(cosmetic_per_row is hardcoded)
+        current_column += 1
+        if current_column >= cosmetic_per_row:
+            current_row += 1
+            current_column = 0
+
+    # footer
+    current_date = datetime.now().strftime('%d/%m/%Y')
+    logo = Image.open('img/logo.png')
+    image.paste(logo, (10, image_height - 165), mask=logo)
+
+    draw.text((170, image_height - 40 * 3 - 28), 'Objects Total: {}'.format(len(arr)), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))   
+    draw_gradient_text(user_data['gradient_type'], draw, (170, image_height - 40 * 2 - 28), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40))
+        
+    # badges
+    font_size = 40
+    font = ImageFont.truetype(font_path, font_size)
+    username_width = font.getbbox(f"@{user_data['username']}")[2]
+    offset_badge = 170 + username_width + 8
+
+    if user_data['epic_badge_active'] == True and user_data['epic_badge'] == True:
+        # epic games badge(special people only)
+        alpha_badge = Image.open('badges/epic.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+
+    if user_data['alpha_tester_3_badge_active'] == True and user_data['alpha_tester_3_badge'] == True:
+        # alpha tester 3 badge
+        alpha_badge = Image.open('badges/alpha3.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_2_badge_active'] == True and user_data['alpha_tester_2_badge'] == True:
+        # alpha tester 2 badge
+        alpha_badge = Image.open('badges/alpha2.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_1_badge_active'] == True and user_data['alpha_tester_1_badge'] == True:
+        # alpha tester 1 badge
+        alpha_badge = Image.open('badges/alpha1.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    draw.text((offset_badge + 8, image_height - 40 * 2 - 28), '| {}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    image.save(nametosave)   
+    
+def render_storm_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+    # calculating cosmetics per row
+    cosmetic_per_row = 6
+    total_cosmetics = len(arr)
+    num_rows = math.ceil(total_cosmetics / cosmetic_per_row)
+    if total_cosmetics > 30:
+        num_rows = int(math.sqrt(total_cosmetics))
+        cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+        
+        while cosmetic_per_row * num_rows < total_cosmetics:
+            num_rows += 1
+            cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+
+    # setup for our image, thumbnails
+    padding = 30
+    thumbnail_width = 128
+    thumbnail_height = 128
+    image_width = int(cosmetic_per_row * thumbnail_width)
+    image_height = int(thumbnail_width * num_rows + 180)
+    font_path = 'styles/storm/font.ttf'
+    font_size = 16
+    font = ImageFont.truetype(font_path, font_size)
+    image = Image.new('RGB', (image_width, image_height), (0, 0, 0))
+
+    current_row = 0
+    current_column = 0
+    sortarray = ['mythic', 'legendary', 'dark', 'slurp', 'starwars', 'marvel', 'lava', 'frozen', 'gaminglegends', 'shadow', 'icon', 'dc', 'epic', 'rare', 'uncommon', 'common']
+    arr.sort(key=lambda x: sortarray.index(x.rarity_value))
+
+    # had some issues with exclusives rendering in wrong order, so i'm sorting them
+    try:
+        with open('exclusive.txt', 'r', encoding='utf-8') as f:
+            exclusive_cosmetics = [i.strip() for i in f.readlines()]
+        
+        with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+            popular_cosmetics = [i.strip() for i in f.readlines()]
+    except FileNotFoundError:
+        print("Error: 'exclusive.txt' or 'most_wanted.txt' not found.")
+        exclusive_cosmetics = []
+        popular_cosmetics = []
+
+    mythic_items = [item for item in arr if item.rarity_value == 'mythic']
+    other_items = [item for item in arr if item.rarity_value != 'mythic']
+    mythic_items.sort(
+        key=lambda x: exclusive_cosmetics.index(x.cosmetic_id) 
+        if x.cosmetic_id in exclusive_cosmetics else float('inf')
+    )
+        
+    if header == "Popular":
+        other_items.sort(
+            key=lambda x: popular_cosmetics.index(x.cosmetic_id) 
+            if x.cosmetic_id in popular_cosmetics else float('inf')
+        )
+        
+    arr = mythic_items + other_items
+    draw = ImageDraw.Draw(image)
+
+    special_items = {
+        "CID_029_Athena_Commando_F_Halloween": "cache/pink_ghoul.png",
+        "CID_030_Athena_Commando_M_Halloween": "cache/purple_skull_old.png",
+        "CID_116_Athena_Commando_M_CarbideBlack": "cache/omega_max.png",
+        "CID_694_Athena_Commando_M_CatBurglar": "cache/gold_midas.png",
+        "CID_693_Athena_Commando_M_BuffCat": "cache/gold_cat.png",
+        "CID_691_Athena_Commando_F_TNTina": "cache/gold_tntina.png",
+        "CID_690_Athena_Commando_F_Photographer": "cache/gold_skye.png",
+        "CID_701_Athena_Commando_M_BananaAgent": "cache/gold_peely.png",
+        "CID_315_Athena_Commando_M_TeriyakiFish": "cache/worldcup_fish.png",
+        "CID_971_Athena_Commando_M_Jupiter_S0Z6M": "cache/black_masterchief.png"
+    }
+        
+    for cosmetic in arr:
+        special_icon = False
+        is_banner = cosmetic.is_banner
+        photo = None
+        if cosmetic.rarity_value.lower() == "mythic" and cosmetic.cosmetic_id in special_items:
+            special_icon = True
+            icon_path = special_items[cosmetic.cosmetic_id]
+            if os.path.exists(icon_path):
+                try:
+                    photo = Image.open(icon_path)
+                except Exception as e:
+                    special_icon = False
+            else:
+                special_icon = False
+        else:
+            photo = fortnite_cache.get_cosmetic_icon_from_cache(cosmetic.small_icon, cosmetic.cosmetic_id)
+            
+        if is_banner:
+            scaled_width = int(photo.width * 1.5)
+            scaled_height = int(photo.height * 1.5)
+            photo = photo.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+            x_offset = 32
+            y_offset = 10
+                
+            new_img = Image.open(f'styles/storm/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img.paste(photo, (x_offset, y_offset), mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+        else:
+            new_img = Image.open(f'styles/storm/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img.paste(photo, mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+
+        # black box for cosmetic name
+        box = Image.new('RGBA', (128, 28), (0, 0, 0, 100))
+        photo.paste(box, (0, new_img.size[1] - 28), mask=box)
+            
+        if header != "Exclusives" and cosmetic.cosmetic_id in popular_cosmetics:
+            star_image = Image.open('cosmetic_icons/WantedStar.png').resize((128, 128), Image.BILINEAR)
+            photo.paste(star_image, (0, 0), star_image.convert("RGBA"))
+
+        x = thumbnail_width * current_column
+        y = thumbnail_height * current_row
+        image.paste(photo, (x, y))
+
+        name = cosmetic.name.upper()
+        max_text_width = thumbnail_width - 10
+        max_text_height = 20
+            
+        # fixed font size
+        font_size = 16
+        offset = 9
+        while True:
+            font = ImageFont.truetype(font_path, font_size)
+            bbox = draw.textbbox((0, 0), name, font=font)
+            name_width = bbox[2] - bbox[0]
+            name_height = bbox[3] - bbox[1]
+
+            if name_width > max_text_width or name_height > max_text_height:
+                font_size -= 1
+                offset += 0.5
+            else:
+                break
+
+        # cosmetic name
+        bbox = draw.textbbox((0, 0), name, font=font)
+        name_width = bbox[2] - bbox[0]
+        draw.text((x + (thumbnail_width - name_width) // 2, y + (thumbnail_height - padding + offset)), name, font=font, fill=(255, 255, 255))
+            
+        # make the cosmetics show ordered in rows(cosmetic_per_row is hardcoded)
+        current_column += 1
+        if current_column >= cosmetic_per_row:
+            current_row += 1
+            current_column = 0
+
+    # footer
+    current_date = datetime.now().strftime('%d %B %Y')
+    logo = Image.open('img/logo.png')
+    image.paste(logo, (10, image_height - 165), mask=logo)
+
+    draw.text((170, image_height - 40 * 3 - 28), '{}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))   
+    draw_gradient_text(0, draw, (170, image_height - 40 * 2 - 28), 'Submitted by ', font=ImageFont.truetype(font_path, 40))
+        
+    # badges
+    font_size = 40
+    font = ImageFont.truetype(font_path, font_size)
+    submit_width = font.getbbox(f"Submitted by")[2]
+    offset_submit = 170 + submit_width + 8
+    username_width = font.getbbox(f"Submitted by @{user_data['username']}")[2]
+    offset_badge = 170 + username_width + 8
+
+    if user_data['epic_badge_active'] == True and user_data['epic_badge'] == True:
+        # epic games badge(special people only)
+        alpha_badge = Image.open('badges/epic.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+
+    if user_data['alpha_tester_3_badge_active'] == True and user_data['alpha_tester_3_badge'] == True:
+        # alpha tester 3 badge
+        alpha_badge = Image.open('badges/alpha3.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_2_badge_active'] == True and user_data['alpha_tester_2_badge'] == True:
+        # alpha tester 2 badge
+        alpha_badge = Image.open('badges/alpha2.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    if user_data['alpha_tester_1_badge_active'] == True and user_data['alpha_tester_1_badge'] == True:
+        # alpha tester 1 badge
+        alpha_badge = Image.open('badges/alpha1.png').resize((40, 40), Image.BILINEAR)
+        image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
+        offset_badge += 45
+        
+    draw_gradient_text(user_data['gradient_type'], draw, (offset_submit, image_height - 40 * 2 - 28), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40))
+    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    image.save(nametosave)
+    
+    
+    
 def command_start(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message)
-    user_data = user.register(message)
+    user = RiftUser(message.from_user.id, message.from_user.username)
+    user_data = user.register()
     if not user_data:
         bot.reply_to(message, "You have already used this command, you don't have to use it anymore!")
         return
@@ -91,8 +972,8 @@ async def command_login(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message)
-    user_data = user.load_data(message)
+    user = RiftUser(message.from_user.id, message.from_user.username)
+    user_data = user.load_data()
     if user_data == {}:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
         return
@@ -123,7 +1004,7 @@ async def command_login(bot, message):
         return
     
     bot.delete_message(msg.chat.id, msg.message_id)
-    msg = bot.send_message(message.chat.id, f"✅ Logged in account {account_data.get("displayName", "HIDDEN_ID_ACCOUNT")}")
+    msg = bot.send_message(message.chat.id, f'✅ Logged in account {account_data.get("displayName", "HIDDEN_ID_ACCOUNT")}')
 
     # account information
     account_public_data = await epic_generator.get_public_account_info(epic_user)
@@ -306,7 +1187,32 @@ Locker Information
         if len(locker_data.cosmetic_array[category]) < 1:
             continue
 
-        # todo: check some shit
+        header = 'Outfits'
+        if category == 'AthenaBackpack':
+            header = 'Backblings'
+        elif category == 'AthenaPickaxe':
+            header = 'Pickaxes'
+        elif category == 'AthenaDance':
+            header = 'Emotes'
+        elif category == 'AthenaGlider':
+            header = 'Gliders'
+        elif category == 'AthenaExclusive':
+            header = 'Exclusives'
+        elif category == 'AthenaPopular':
+            header = 'Popular'
+            
+        if user_data['style'] == 0: # rift style
+            render_rift_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
+        # TODO: recode easy style & add it
+        elif user_data['style'] == 2: # raika style
+            render_raika_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
+        elif user_data['style'] == 3: # kayy style
+            render_kayy_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')  
+        elif user_data['style'] == 4: # storm style
+            render_storm_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png') 
+              
+        with open(f'{save_path}/{category}.png', 'rb') as photo_file:
+            bot.send_photo(msg.chat.id, photo_file)
 
     skins = len(locker_data.cosmetic_array['AthenaCharacter'])
     excl = locker_data.cosmetic_array['AthenaExclusive']
@@ -324,18 +1230,41 @@ Locker Information
     desc = f'{skins} + {cosmetic_list} + {total_vbucks}VB'
     bot.send_message(message.chat.id,f'{desc}')
     await epic_generator.kill()
-def command_style(bot, message):
+
+async def command_style(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message)
-    user_data = user.load_data(message)
+    user = RiftUser(message.from_user.id, message.from_user.username)
+    user_data = user.load_data()
     if not user_data:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
         return
         
     current_style_index = user_data['style']
     send_style_message(bot, message.chat.id, current_style_index)
+
+async def command_badges(bot, message):
+    if message.chat.type != "private":
+        return
+    
+    user = RiftUser(message.from_user.id, message.from_user.username)
+    user_data = user.load_data()
+    if not user_data:
+        bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
+        return
+        
+    badges_unlocked = 0
+    for badge in avaliable_badges:
+        if user_data[badge['data']] == True:
+            badges_unlocked += 1
+    
+    if badges_unlocked < 1:
+        msg = bot.reply_to(message, "You don't have any badges unlocked.")
+        return
+                  
+    current_badge_index = 0
+    send_badges_message(bot, message.chat.id, current_badge_index, user_data)
 
 def send_style_message(bot, chat_id, style_index):
     style = available_styles[style_index]
@@ -356,3 +1285,28 @@ def send_style_message(bot, chat_id, style_index):
             reply_markup=markup,
             parse_mode="Markdown"
         )
+
+def send_badges_message(bot, chat_id, badge_index, user_data):
+    badge = avaliable_badges[badge_index]
+    markup = InlineKeyboardMarkup()
+    
+    if badge_index > 0:
+        markup.add(InlineKeyboardButton("◀️", callback_data=f"badge_{badge_index - 1}"))
+    if badge_index < len(avaliable_badges) - 1:
+        markup.add(InlineKeyboardButton("▶️", callback_data=f"badge_{badge_index + 1}"))
+        
+    if user_data[badge['data']] == True:
+        badge_status = user_data.get(badge['data2'], False)
+        toggle_text = "✅ Enabled" if badge_status else "❌ Disabled"
+        markup.add(InlineKeyboardButton(toggle_text, callback_data=f"toggle_{badge_index}"))
+
+        with open(badge['image'], 'rb') as img:
+            bot.send_photo(
+                chat_id,
+                img,
+                caption=f"{badge['name']}",
+                reply_markup=markup,
+                parse_mode="Markdown"
+            )
+    else:
+        bot.reply_to(chat_id, "You don't have any badges unlocked.")

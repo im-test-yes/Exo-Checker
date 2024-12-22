@@ -9,7 +9,7 @@ Setup Guide(Windows):
 - python -m pip install --upgrade pip
 
 - pip install Pillow==11.0.0
-- pip install telebot-full
+- pip install telebot
 - pip install asyncio
 - pip install aiohttp
 
@@ -19,6 +19,6 @@ Setup Guide(Linux):
 - sudo apt install -y python3
 - sudo apt install -y python3-pip
 - pip install Pillow==11.0.0
-- pip install telebot-full
+- pip install telebot
 - pip install asyncio
 - pip install aiohttp

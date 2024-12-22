@@ -8,7 +8,7 @@ Setup Guide(Windows):
 - make sure python is installed with the option "Add to "PATh";
 - python -m pip install --upgrade pip
 
-- pip install Pillow==1.11.0
+- pip install Pillow==11.0.0
 - pip install telebot-full
 - pip install asyncio
 - pip install aiohttp
@@ -18,7 +18,7 @@ Setup Guide(Linux):
 - sudo apt upgrade
 - sudo apt install -y python3
 - sudo apt install -y python3-pip
-- pip install Pillow==1.11.0
+- pip install Pillow==11.0.0
 - pip install telebot-full
 - pip install asyncio
 - pip install aiohttp

@@ -1184,7 +1184,7 @@ Locker Information
        os.mkdir(save_path)
 
     for category in locker_categories:
-        if len(locker_data.cosmetic_array[category]) < 1:
+        if category not in locker_data.cosmetic_array or len(locker_data.cosmetic_array[category]) < 1:
             continue
 
         header = 'Outfits'

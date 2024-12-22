@@ -411,6 +411,10 @@ class EpicGenerator:
                         continue
 
                     for cosmetic in c_data:
+                        if cosmetic['id'] == "CID_DefaultOutfit":
+                            # skipping default skin
+                            continue
+                            
                         if category == 'AthenaDance' and cosmetic['type']['value'] != 'emote' and cosmetic['id'] not in exclusive_cosmetics:
                             # emote category, but isnt exclusive and isnt emote
                             continue

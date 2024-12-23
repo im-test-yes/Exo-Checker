@@ -75,9 +75,9 @@ fortnite_cache = FortniteCache()
 
 available_styles = [
     {"ID": 0, "name": "Rift", "image": "img/styles/rift.png"},
-    {"ID": 1, "name": "Legacy", "image": "img/styles/legacy.png"},
-    {"ID": 2, "name": "Modern", "image": "img/styles/modern.png"},
-    {"ID": 3, "name": "Origin", "image": "img/styles/origin.png"},
+    {"ID": 1, "name": "Easy", "image": "img/styles/easy.png"},
+    {"ID": 2, "name": "Raika", "image": "img/styles/raika.png"},
+    {"ID": 3, "name": "kayy", "image": "img/styles/kayy.png"},
     {"ID": 4, "name": "Storm", "image": "img/styles/storm.png"}
 ]
 
@@ -331,6 +331,239 @@ def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:st
         offset_badge += 45
         
     draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    image.save(nametosave)
+    
+def render_easy_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+    # calculating cosmetics per row
+    cosmetic_per_row = 6
+    total_cosmetics = len(arr)
+    num_rows = math.ceil(total_cosmetics / cosmetic_per_row)
+    if total_cosmetics > 30:
+        num_rows = int(math.sqrt(total_cosmetics))
+        cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+        
+        while cosmetic_per_row * num_rows < total_cosmetics:
+            num_rows += 1
+            cosmetic_per_row = math.ceil(total_cosmetics / num_rows)
+
+    # setup for our image, thumbnails
+    padding_height = 10
+    padding_width = 50
+    thumbnail_width = 128
+    thumbnail_height = 128
+    image_width = int(cosmetic_per_row * thumbnail_width + padding_width * 2)
+    image_height = int(padding_width + (padding_height + thumbnail_width) * num_rows + padding_width * 2)
+    font_path = 'styles/easy/font.ttf'
+    font_size = 16
+    font = ImageFont.truetype(font_path, font_size)
+    image = Image.new('RGB', (image_width, image_height), (58, 58, 58))
+
+    current_row = 0
+    current_column = 0
+    sortarray = ['mythic', 'legendary', 'dark', 'slurp', 'starwars', 'marvel', 'lava', 'frozen', 'gaminglegends', 'shadow', 'icon', 'dc', 'epic', 'rare', 'uncommon', 'common']
+    arr.sort(key=lambda x: sortarray.index(x.rarity_value))
+
+    # had some issues with exclusives rendering in wrong order, so i'm sorting them
+    try:
+        with open('exclusive.txt', 'r', encoding='utf-8') as f:
+            exclusive_cosmetics = [i.strip() for i in f.readlines()]
+        
+        with open('most_wanted.txt', 'r', encoding='utf-8') as f:
+            popular_cosmetics = [i.strip() for i in f.readlines()]
+    except FileNotFoundError:
+        print("Error: 'exclusive.txt' or 'most_wanted.txt' not found.")
+        exclusive_cosmetics = []
+        popular_cosmetics = []
+
+    mythic_items = [item for item in arr if item.rarity_value == 'mythic']
+    other_items = [item for item in arr if item.rarity_value != 'mythic']
+    mythic_items.sort(
+        key=lambda x: exclusive_cosmetics.index(x.cosmetic_id) 
+        if x.cosmetic_id in exclusive_cosmetics else float('inf')
+    )
+        
+    if header == "Popular":
+        other_items.sort(
+            key=lambda x: popular_cosmetics.index(x.cosmetic_id) 
+            if x.cosmetic_id in popular_cosmetics else float('inf')
+        )
+        
+    arr = mythic_items + other_items
+    draw = ImageDraw.Draw(image)
+
+    # cosmetics count
+    cosmetics = '{} count: {}'.format(header, len(arr))
+    max_text_width = image_width - 20
+    max_text_height = 40
+    min_font_size = 10
+            
+    font_size = 40
+    while True:
+        bbox = draw.textbbox((0, 0), cosmetics, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        if text_width > max_text_width or font_size > image_height - 2:
+            font_size -= 1
+            if font_size < min_font_size:
+                font_size = min_font_size
+                break
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            break
+
+
+    font = ImageFont.truetype(font_path, font_size)
+    bbox = draw.textbbox((0, 0), cosmetics, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_x = (image_width - text_width) // 2
+    draw.text((text_x, 3), cosmetics, font=font, fill=(255, 255, 255))
+        
+    special_items = {
+        "CID_029_Athena_Commando_F_Halloween": "cache/pink_ghoul.png",
+        "CID_030_Athena_Commando_M_Halloween": "cache/purple_skull_old.png",
+        "CID_116_Athena_Commando_M_CarbideBlack": "cache/omega_max.png",
+        "CID_694_Athena_Commando_M_CatBurglar": "cache/gold_midas.png",
+        "CID_693_Athena_Commando_M_BuffCat": "cache/gold_cat.png",
+        "CID_691_Athena_Commando_F_TNTina": "cache/gold_tntina.png",
+        "CID_690_Athena_Commando_F_Photographer": "cache/gold_skye.png",
+        "CID_701_Athena_Commando_M_BananaAgent": "cache/gold_peely.png",
+        "CID_315_Athena_Commando_M_TeriyakiFish": "cache/worldcup_fish.png",
+        "CID_971_Athena_Commando_M_Jupiter_S0Z6M": "cache/black_masterchief.png"
+    }
+        
+    for cosmetic in arr:
+        special_icon = False
+        is_banner = cosmetic.is_banner
+        photo = None
+        if cosmetic.rarity_value.lower() == "mythic" and cosmetic.cosmetic_id in special_items:
+            special_icon = True
+            icon_path = special_items[cosmetic.cosmetic_id]
+            if os.path.exists(icon_path):
+                try:
+                    photo = Image.open(icon_path)
+                except Exception as e:
+                    special_icon = False
+            else:
+                special_icon = False
+        else:
+            photo = fortnite_cache.get_cosmetic_icon_from_cache(cosmetic.small_icon, cosmetic.cosmetic_id)
+            
+        if is_banner:
+            scaled_width = int(photo.width * 1.5)
+            scaled_height = int(photo.height * 1.5)
+            photo = photo.resize((scaled_width, scaled_height), Image.Resampling.LANCZOS)
+            x_offset = 32
+            y_offset = 10
+                
+            new_img = Image.open(f'styles/easy/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img.paste(photo, (x_offset, y_offset), mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+        else:
+            new_img = Image.open(f'styles/easy/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img.paste(photo, mask=photo)
+            photo = new_img
+            photo.thumbnail((thumbnail_width, thumbnail_height))
+
+        # black box for cosmetic name
+        box = Image.new('RGBA', (128, 20), (0, 0, 0, 75))
+        photo.paste(box, (0, new_img.size[1] - 40), mask=box)
+        
+        border = Image.open(f'styles/easy/border/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+        photo.paste(border, mask=border)
+        
+        x = padding_width + thumbnail_width * current_column
+        y = padding_width + (thumbnail_height + padding_height) * current_row
+        image.paste(photo, (x, y))
+
+        name = cosmetic.name
+        max_text_width = thumbnail_width - 10
+        max_text_height = 20
+            
+        font_size = 18
+        while True:
+            font = ImageFont.truetype(font_path, font_size)
+            bbox = draw.textbbox((0, 0), name, font=font)
+            name_width = bbox[2] - bbox[0]
+            name_height = bbox[3] - bbox[1]
+
+            if name_width > max_text_width or name_height > max_text_height:
+                font_size -= 1
+            else:
+                break
+
+        # cosmetic name
+        bbox = draw.textbbox((0, 0), name, font=font)
+        name_width = bbox[2] - bbox[0]
+        draw.text((x + (thumbnail_width - name_width) // 2, y + (thumbnail_height - 40)), name, font=font, fill=(255, 255, 255))
+            
+        # make the cosmetics show ordered in rows(cosmetic_per_row is hardcoded)
+        current_column += 1
+        if current_column >= cosmetic_per_row:
+            current_row += 1
+            current_column = 0
+
+    # footer
+    current_date = datetime.now().strftime('%d/%m/%Y')
+    footer = 'Submitted by @{} on {}'.format(user_data['username'], current_date)
+    max_text_width = image_width - 20
+    max_text_height = 40
+    min_font_size = 15
+            
+    font_size = 40
+    while True:
+        bbox = draw.textbbox((0, 0), footer, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        if text_width > max_text_width or font_size > image_height - 2:
+            font_size -= 1
+            if font_size < min_font_size:
+                font_size = min_font_size
+                break
+            
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            break
+        
+    font = ImageFont.truetype(font_path, font_size)
+    bbox = draw.textbbox((0, 0), footer, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_x = (image_width - text_width) // 2
+    text_y = image_height - font_size - 55
+    draw.text((text_x, text_y), footer, font=font, fill=(255, 255, 255))
+    
+    # bot advertisment
+    footer2 = 't.me/RiftCheckerBot'
+    max_text_width = image_width - 20
+    max_text_height = 40
+    min_font_size = 15
+            
+    font_size = 40
+    while True:
+        bbox = draw.textbbox((0, 0), footer2, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+
+        if text_width > max_text_width or font_size > image_height - 2:
+            font_size -= 1
+            if font_size < min_font_size:
+                font_size = min_font_size
+                break
+            
+            font = ImageFont.truetype(font_path, font_size)
+        else:
+            break
+
+
+    font = ImageFont.truetype(font_path, font_size)
+    bbox = draw.textbbox((0, 0), footer2, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_x = (image_width - text_width) // 2
+    text_y = image_height - font_size - 15
+    draw.text((text_x, text_y), footer2, font=font, fill=(255, 255, 255))
+     
     image.save(nametosave)
 
 def render_raika_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
@@ -942,6 +1175,26 @@ Commands:
 /locker - shows last locker image for specified accountID(NOTE: it's inaccurate, because we use ALREADY CHECKED images)
 ''')
     
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/Debugtopia/RiftCheckerBot")],
+        [InlineKeyboardButton("🔗 Stock Channel", url="https://t.me/RiftStock"),
+         InlineKeyboardButton("🔗 News Channel", url="https://t.me/RiftCheckerNews")]
+    ])
+
+    bot.send_message(
+        chat_id=message.chat.id,
+        text=(
+            "Welcome to Rift Checker Bot!\n"
+            "Developed by @xhexago\n"
+            "Interested in purchasing Fortnite accounts?\n"
+            "- @riftstock\n\n"
+            "Rift Checker Bot's News channel:\n"
+            "- @riftcheckernews"
+        ),
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    
 def command_help(bot, message):
     bot.reply_to(message, f'''
 What is Rift Checker Bot?
@@ -1203,11 +1456,16 @@ Locker Information
             
         if user_data['style'] == 0: # rift style
             render_rift_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
-        # TODO: recode easy style & add it
+            
+        elif user_data['style'] == 1: # easy style
+            render_easy_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
+                     
         elif user_data['style'] == 2: # raika style
             render_raika_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
+            
         elif user_data['style'] == 3: # kayy style
-            render_kayy_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')  
+            render_kayy_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png') 
+             
         elif user_data['style'] == 4: # storm style
             render_storm_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png') 
               
@@ -1230,6 +1488,28 @@ Locker Information
     desc = f'{skins} + {cosmetic_list} + {total_vbucks}VB'
     bot.send_message(message.chat.id,f'{desc}')
     await epic_generator.kill()
+    
+    # button-embed message
+    markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/Debugtopia/RiftCheckerBot")],
+        [InlineKeyboardButton("🔗 Rift Stock", url="https://t.me/RiftStock"),
+         InlineKeyboardButton("🔗 News Channel", url="https://t.me/RiftCheckerNews")]
+    ])
+
+    bot.send_message(
+        chat_id=message.chat.id,
+        text=(
+            "Thanks for using Rift Checker Bot!\n"
+            "Developed by @xhexago\n"
+            "Interested in purchasing Fortnite accounts?\n"
+            "- @riftstock\n\n"
+            "Rift Checker Bot's News channel:\n"
+            "- @riftcheckernews"
+        ),
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    
 
 async def command_style(bot, message):
     if message.chat.type != "private":
@@ -1292,7 +1572,7 @@ def send_badges_message(bot, chat_id, badge_index, user_data):
         for i, badge in enumerate(avaliable_badges)
         if user_data.get(badge['data'], False)
     ]
-
+    
     if not unlocked_badges:
         bot.send_message(chat_id, "You don't have any badges unlocked.")
         return

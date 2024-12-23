@@ -248,8 +248,6 @@ class EpicGenerator:
                 return []
             
             external_auths = await resp.json()
-            with open('dumps/external_auth.txt', 'w') as ext_file:
-                json.dump(external_auths, ext_file, indent=4)
 
         return external_auths
         

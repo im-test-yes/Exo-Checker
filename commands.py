@@ -1287,26 +1287,30 @@ def send_style_message(bot, chat_id, style_index):
         )
 
 def send_badges_message(bot, chat_id, badge_index, user_data):
-    badge = avaliable_badges[badge_index]
-    markup = InlineKeyboardMarkup()
-    
-    if badge_index > 0:
-        markup.add(InlineKeyboardButton("◀️", callback_data=f"badge_{badge_index - 1}"))
-    if badge_index < len(avaliable_badges) - 1:
-        markup.add(InlineKeyboardButton("▶️", callback_data=f"badge_{badge_index + 1}"))
-        
-    if user_data[badge['data']] == True:
-        badge_status = user_data.get(badge['data2'], False)
-        toggle_text = "✅ Enabled" if badge_status else "❌ Disabled"
-        markup.add(InlineKeyboardButton(toggle_text, callback_data=f"toggle_{badge_index}"))
+    for i, badge in enumerate(avaliable_badges):
+        if user_data.get(badge['data'], False):
+            badge_status = user_data.get(badge['data2'], False)
+            toggle_text = "✅ Enabled" if badge_status else "❌ Disabled"
 
-        with open(badge['image'], 'rb') as img:
-            bot.send_photo(
-                chat_id,
-                img,
-                caption=f"{badge['name']}",
-                reply_markup=markup,
-                parse_mode="Markdown"
-            )
-    else:
-        bot.reply_to(chat_id, "You don't have any badges unlocked.")
+            markup = InlineKeyboardMarkup()
+            if i > 0:
+                markup.add(InlineKeyboardButton("◀️", callback_data=f"badge_{i - 1}"))
+            if i < len(avaliable_badges) - 1:
+                markup.add(InlineKeyboardButton("▶️", callback_data=f"badge_{i + 1}"))
+            markup.add(InlineKeyboardButton(toggle_text, callback_data=f"toggle_{i}"))
+
+            try:
+                with open(badge['image'], 'rb') as img:
+                    bot.send_photo(
+                        chat_id,
+                        img,
+                        caption=f"{badge['name']}",
+                        reply_markup=markup,
+                        parse_mode="Markdown"
+                    )
+            except FileNotFoundError:
+                bot.send_message(chat_id, f"Image for badge {badge['name']} not found.")
+            return
+
+    bot.send_message(chat_id, "You don't have any badges unlocked.")
+

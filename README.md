@@ -22,3 +22,6 @@ Setup Guide(Linux):
 - pip install telebot
 - pip install asyncio
 - pip install aiohttp
+
+- Make .env file with variables for:
+- TELEGRAM_API_TOKEN

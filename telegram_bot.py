@@ -19,11 +19,8 @@ import cosmetic
 import commands
 import utils
 
-# your telegram bot's api token
-TELEGRAM_API_TOKEN = ""
-
 # locker categories we render in the checker
-telegram_bot = telebot.TeleBot(TELEGRAM_API_TOKEN)
+telegram_bot = telebot.TeleBot(os.getenv(TELEGRAM_API_TOKEN))
 
 telegram_bot.set_my_commands([
     telebot.types.BotCommand("/start", "Setup your user to start skinchecking."),

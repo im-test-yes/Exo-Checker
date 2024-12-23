@@ -14,7 +14,16 @@ from user import RiftUser
 from cosmetic import FortniteCosmetic
 from epic_auth import EpicUser, EpicEndpoints, EpicGenerator, LockerData
 
-
+def escape_markdown(text):
+    """
+    Escapes special characters for markdown formatting
+    @note: sometimes external connections shows error due to these, so we handle it that way
+    """
+    escape_chars = ['_', '*', '[', ']', '(', ')', '~', '`', '>', '#', '+', '-', '=', '|', '{', '}', '.', '!']
+    for char in escape_chars:
+        text = text.replace(char, f"\\{char}")
+        
+    return text
 
 class FortniteCache:
     def __init__(self):
@@ -1293,9 +1302,9 @@ Connected Account
 
         connected_accounts += 1
         connected_accounts_message += f"""
-Connection Type: {auth_type.upper()}
-External Display Name: {display_name}
-Date of Connection: {date_added}
+Connection Type: {escape_markdown(auth_type.upper())}
+External Display Name: {escape_markdown(display_name)}
+Date of Connection: {escape_markdown(date_added)}
 """
 
     if connected_accounts == 0:

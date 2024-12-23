@@ -1287,30 +1287,37 @@ def send_style_message(bot, chat_id, style_index):
         )
 
 def send_badges_message(bot, chat_id, badge_index, user_data):
-    for i, badge in enumerate(avaliable_badges):
-        if user_data.get(badge['data'], False):
-            badge_status = user_data.get(badge['data2'], False)
-            toggle_text = "✅ Enabled" if badge_status else "❌ Disabled"
+    unlocked_badges = [
+        (i, badge)
+        for i, badge in enumerate(avaliable_badges)
+        if user_data.get(badge['data'], False)
+    ]
 
-            markup = InlineKeyboardMarkup()
-            if i > 0:
-                markup.add(InlineKeyboardButton("◀️", callback_data=f"badge_{i - 1}"))
-            if i < len(avaliable_badges) - 1:
-                markup.add(InlineKeyboardButton("▶️", callback_data=f"badge_{i + 1}"))
-            markup.add(InlineKeyboardButton(toggle_text, callback_data=f"toggle_{i}"))
+    if not unlocked_badges:
+        bot.send_message(chat_id, "You don't have any badges unlocked.")
+        return
 
-            try:
-                with open(badge['image'], 'rb') as img:
-                    bot.send_photo(
-                        chat_id,
-                        img,
-                        caption=f"{badge['name']}",
-                        reply_markup=markup,
-                        parse_mode="Markdown"
-                    )
-            except FileNotFoundError:
-                bot.send_message(chat_id, f"Image for badge {badge['name']} not found.")
-            return
+    badge_index = min(max(0, badge_index), len(unlocked_badges) - 1)
+    actual_index, badge = unlocked_badges[badge_index]
 
-    bot.send_message(chat_id, "You don't have any badges unlocked.")
+    badge_status = user_data.get(badge['data2'], False)
+    toggle_text = "✅ Enabled" if badge_status else "❌ Disabled"
 
+    markup = InlineKeyboardMarkup()
+    if badge_index > 0:
+        markup.add(InlineKeyboardButton("◀️", callback_data=f"badge_{badge_index - 1}"))
+    if badge_index < len(unlocked_badges) - 1: 
+        markup.add(InlineKeyboardButton("▶️", callback_data=f"badge_{badge_index + 1}"))
+    markup.add(InlineKeyboardButton(toggle_text, callback_data=f"toggle_{actual_index}"))
+
+    try:
+        with open(badge['image'], 'rb') as img:
+            bot.send_photo(
+                chat_id,
+                img,
+                caption=f"{badge['name']}",
+                reply_markup=markup,
+                parse_mode="Markdown"
+            )
+    except FileNotFoundError:
+        bot.send_message(chat_id, f"Image for badge {badge['name']} not found.")

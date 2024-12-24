@@ -5,6 +5,7 @@ import os
 import platform
 import json
 import math
+from typing import Optional
 from datetime import datetime, timezone
 from cosmetic import FortniteCosmetic
 from utils import bool_to_emoji
@@ -147,54 +148,88 @@ class EpicGenerator:
             data = await response.json()
             return data["code"]
     
-    async def wait_for_device_code_completion(self, code: str) -> EpicUser:
-        # REQUIRES usage of EPIC_API_SWITCH_TOKEN as Authorization in headers
-        # the device code completion runs forever, until the code expires
+    async def wait_for_device_code_completion(self, bot, message, code: str) -> Optional[EpicUser]:
         while True:
+            try:
+                async with self.http.request(
+                    method="POST",
+                    url=EpicEndpoints.endpoint_prod03_oauth_token,
+                    headers={
+                        "Authorization": f"basic {EPIC_API_SWITCH_TOKEN}",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    data={"grant_type": "device_code", "device_code": code},
+                    timeout=10
+                ) as request:
+                    token_data = await request.json()
+
+                    if request.status == 200 and "access_token" in token_data:
+                        break
+
+                    # Handle specific API errors
+                    error_code = token_data.get("errorCode")
+                    if error_code == "errors.com.epicgames.account.oauth.authorization_pending":
+                        pass
+                    
+                    elif error_code == "g":
+                        pass
+                    
+                    elif error_code == "errors.com.epicgames.not_found":
+                        bot.send_message(message.chat.id, f'❌ Login link expired, please use /login again.')
+                        return None
+                    else:
+                        bot.send_message(message.chat.id, f'❌ Error occurred: {token_data.get("errorMessage", "Unknown error")}')
+                        return None
+
+                await asyncio.sleep(10)
+            except ValueError as ve:
+                print(f"Error with waiting for device code: {ve}")
+                bot.send_message(message.chat.id, f'❌ An unexpected error occurred, please try again later.')
+                return None
+            except Exception as e:
+                print(f"Unhandled exception: {e}")
+                bot.send_message(message.chat.id, f'❌ An error occurred, please contact support.')
+                return None
+
+        try:
+            async with self.http.request(
+                method="GET",
+                url=EpicEndpoints.endpoint_oauth_exchange,
+                headers={"Authorization": f"bearer {token_data['access_token']}"},
+            ) as request:
+                if request.status != 200:
+                    bot.send_message(message.chat.id, f'❌ Failed to retrieve exchange code. Please try again.')
+                    return None
+
+                exchange_data = await request.json()
+
             async with self.http.request(
                 method="POST",
                 url=EpicEndpoints.endpoint_prod03_oauth_token,
                 headers={
-                    "Authorization": f"basic {EPIC_API_SWITCH_TOKEN}",
-                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": f"basic {EPIC_API_IOS_CLIENT_TOKEN}",
+                    "Content-Type": "application/x-www-form-urlencoded"
                 },
-                data={"grant_type": "device_code", "device_code": code},
+                data={
+                    "grant_type": "exchange_code",
+                    "exchange_code": exchange_data["code"]
+                },
             ) as request:
-                token_data = await request.json()
-                if request.status == 200:
-                    break
-                else:
-                    if (token_data["errorCode"] == "errors.com.epicgames.account.oauth.authorization_pending"):
-                        pass
-                    elif token_data["errorCode"] == "g":
-                        pass
+                if request.status != 200:
+                    bot.send_message(message.chat.id, f'❌ Failed to authenticate using exchange code. Please try again.')
+                    return None
 
-                await asyncio.sleep(10)
+                auth_data = await request.json()
 
-        async with self.http.request(
-            method="GET",
-            url=EpicEndpoints.endpoint_oauth_exchange,
-            headers={"Authorization": f"bearer {token_data['access_token']}"},
-        ) as request:
-            exchange_data = await request.json()
-
-        # REQUIRES usage of EPIC_API_IOS_CLIENT_TOKEN as Authorization in the headers
-        # if it returns that the device is blocked, create a new iOS client token!
-        async with self.http.request(
-            method="POST",
-            url=EpicEndpoints.endpoint_prod03_oauth_token,
-            headers={
-                "Authorization": f"basic {EPIC_API_IOS_CLIENT_TOKEN}",
-                "Content-Type": "application/x-www-form-urlencoded"
-            },
-            data={
-                "grant_type": "exchange_code",
-                "exchange_code": exchange_data["code"]
-            },
-        ) as request:
-            auth_data = await request.json()
-            
             return EpicUser(data=auth_data)
+
+        except KeyError as ke:
+            bot.send_message(message.chat.id, f'❌ Unexpected response format from server.')
+            return None
+        except Exception as e:
+            print(f"Unhandled exception during token exchange: {e}")
+            bot.send_message(message.chat.id, f'❌ An error occurred while completing authentication.')
+            return None
         
     async def create_device_auths(self, user: EpicUser) -> dict:
         # creates device auth

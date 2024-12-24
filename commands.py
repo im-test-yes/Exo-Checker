@@ -1260,6 +1260,7 @@ async def command_login(bot, message):
     epic_user = await epic_generator.wait_for_device_code_completion(bot, message, code=device_data['device_code'])
     if not epic_user:
         # something went wrong so we can't check the account
+        await epic_generator.kill()
         return
         
     account_data = await epic_generator.get_account_metadata(epic_user)

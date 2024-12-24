@@ -1257,7 +1257,11 @@ async def command_login(bot, message):
         reply_markup=markup,
         parse_mode="Markdown")
     
-    epic_user = await epic_generator.wait_for_device_code_completion(code=device_data['device_code'])
+    epic_user = await epic_generator.wait_for_device_code_completion(bot, message, code=device_data['device_code'])
+    if not epic_user:
+        # something went wrong so we can't check the account
+        return
+        
     account_data = await epic_generator.get_account_metadata(epic_user)
    
     accountID = account_data.get('id', "INVALID_ACCOUNT_ID")

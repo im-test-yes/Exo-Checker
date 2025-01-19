@@ -59,13 +59,6 @@ CID_096_Athena_Commando_F_Founder
 CID_095_Athena_Commando_M_Founder
 
 
-CID_701_Athena_Commando_M_BananaAgent
-CID_690_Athena_Commando_F_Photographer
-CID_691_Athena_Commando_F_TNTina
-CID_693_Athena_Commando_M_BuffCat
-CID_694_Athena_Commando_M_CatBurglar
-
-
 Character_SnowNinjaDark
 CID_052_Athena_Commando_F_PSBlue
 CID_138_Athena_Commando_M_PSBurnout
@@ -80,6 +73,16 @@ CID_926_Athena_Commando_F_StreetFashionDiamond
 Character_RetroWheels
 
 
+CID_701_Athena_Commando_M_BananaAgent
+CID_690_Athena_Commando_F_Photographer
+CID_691_Athena_Commando_F_TNTina
+CID_693_Athena_Commando_M_BuffCat
+CID_694_Athena_Commando_M_CatBurglar
+
+
+Character_TubaGummi
+
+
 BID_004_BlackKnight
 BID_415_TechLlama
 BID_138_Celestial
@@ -89,6 +92,7 @@ BID_234_SpeedyMidnight
 BID_604_SkullBritecube
 BID_114_ModernMilitaryRed
 BID_346_BlackWidowRogue
+PetCarrier_013_BbqLarry
 
 BID_002_RoyaleKnight
 BID_001_BlueSquire
@@ -171,34 +175,35 @@ EID_Fresh
 EID_Floss
 EID_Worm
 EID_RideThePonyTwo
-EID_RigorMortis
 EID_TakeTheL
 EID_HipHop01
 EID_GoodVibes
 EID_IceKing
+EID_RichFam
+EID_PlayerEleven
+EID_RigorMortis
+EID_Gleam
 EID_Downward_8GZUA
 EID_CycloneHeadBang
-EID_Laugh
-EID_JanuaryBop
-EID_RichFam
+EID_SandwichBop
 EID_JulyBooks
-EID_Gleam
-EID_Textile_3O8QG
-EID_Comrade_6O5AK	
+EID_Laugh
+EID_Textile_3O8QG	
 EID_Uproar_496SC
-EID_Bollywood
 EID_Tidy
 EID_Zippy
+
+
 EID_Avian
+
+
+Emoji_S22_Showdown_Mae
+Emoji_S22_Showdown_Zet
 
 
 Spray_Showdown_Mae
 Spray_Showdown_Zet
 Spray_Showdown_Pi
-Emoji_S22_Showdown_Mae
-Emoji_S22_Showdown_Zet
-
-
 SPID_066_Llamalaxy
 SPID_065_DiscoBaller
 SPID_043_Flairspray
@@ -271,6 +276,22 @@ OT2Banner
 OT1Banner
 OtherBanner51
 BRSeason01
+NewsletterBanner
+Winter2018Krampus
+Winter2018BearTrapFoot
+Winter2018Cooker
+Winter2018SnowmanBuried
+Winter2018CrownFlame
+Winter2018IcicleCluster
+Winter2018Tower
+Winter2018Wave30Complete
+Winter2018GingerbreadMan
+StarlightBanner6
+StarlightBanner5
+StarlightBanner4
+StarlightBanner3
+StarlightBanner2
+StarlightBanner1
 EnduranceWave30Theater04
 EnduranceWave30Theater03
 EnduranceWave30Theater02
@@ -284,7 +305,16 @@ SurvivalBannerStorm2018Stonewood
 WargamesAnomaly
 WargamesMeteor
 WargamesTornado
+AchievementUnspeakableHorrors
+AchievementWorldExplorer
+AchievementGuardianAngel
+AchievementPlaysWellWithOthers
+AchievementTalentedBuilder
 AchievementGoGnome
+AchievementLootLegend
+SurvivalBannerPlankertonComplete
+SurvivalBannerCannyValleyComplete
+SurvivalBannerStonewoodComplete
 InfluencerBanner1
 InfluencerBanner2
 InfluencerBanner3
@@ -372,6 +402,9 @@ FounderTier1Banner5
 SurvivalBannerHolidayHard
 SurvivalBannerHolidayMed
 SurvivalBannerHolidayEasy
+SurvivalBannerStorm2018Hard
+SurvivalBannerStorm2018Med
+SurvivalBannerStorm2018Easy
 BRS10Level100
 BRS9Lvl100
 BRS8Level100

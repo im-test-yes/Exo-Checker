@@ -6,6 +6,7 @@ Pickaxe_Lockjaw
 Glider_ID_001
 
 
+CID_619_Athena_Commando_F_TechLlama
 CID_035_Athena_Commando_M_Medieval
 CID_039_Athena_Commando_F_Disco
 CID_434_Athena_Commando_F_StealthHonor
@@ -21,8 +22,11 @@ CID_A_215_Athena_Commando_F_SunriseCastle_48TIZ
 CID_A_381_Athena_Commando_F_CactusRocker_3HTBV
 Character_TigerRootFame
 Character_Hitman_Dark
+Character_VoltaicHuntress
 Character_FallValleyBlink
 Character_FallValleyCharge
+Character_UpbeatIguana_D
+Character_UpbeatIguana
 CID_993_Athena_Commando_M_TyphoonRobot_2YRGV
 Character_StallionAviator
 CID_530_Athena_Commando_F_BlackMonday_1BV6J
@@ -38,6 +42,7 @@ CID_A_265_Athena_Commando_M_Grandeur_TBC0O
 Character_Hitman_Dark
 Character_BlueMystery_Dark
 Character_PinkTrooperDark
+Character_DarkVogue
 CID_A_256_Athena_Commando_F_UproarBraids_8IOZW
 CID_A_329_Athena_Commando_F_Uproar_I5N5Z
 CID_A_385_Athena_Commando_F_Rumble
@@ -61,8 +66,18 @@ CID_653_Athena_Commando_F_UglySweaterFrozen
 Character_BrightIon
 CID_216_Athena_Commando_F_Medic
 CID_A_338_Athena_Commando_F_Galactic_HN9D
+Character_RedOasisPomegranate
+Character_RedOasisApricot
+CID_819_Athena_Commando_F_NeonTightSuit_B
 Character_SuperNovaTaro
-
+CID_A_096_Athena_Commando_F_TaxiUpgradedMulticolor
+CID_A_388_Athena_Commando_F_Lyrical
+CID_A_387_Athena_Commando_M_Lyrical
+CID_861_Athena_Commando_F_Elastic_B
+CID_A_250_Athena_Commando_F_ZombieElastic_B
+CID_A_443_Athena_Commando_F_PennantSeasOne_C
+CID_A_444_Athena_Commando_F_PennantSeasOne_D
+CID_A_441_Athena_Commando_F_PennantSeasOne
 
 
 CID_065_Athena_Commando_F_SkiGirl_FRA
@@ -74,12 +89,19 @@ CID_068_Athena_Commando_F_SkiGirl_KOR
 
 
 Character_ReconExpert_FNCS
+Character_GarbageFNCS
 Character_TreasureHunterFashionsFNCS
+Character_LeatherKey
+CID_888_Athena_Commando_F_ChOneBanshee
+CID_889_Athena_Commando_F_ChOneWildcat
+CID_884_Athena_Commando_F_ChOneRamirez
+CID_885_Athena_Commando_M_ChOneHawk
 
 
 BID_138_Celestial
 BID_004_BlackKnight
 BID_229_LuckyRiderMale
+BID_468_Cyclone
 BID_273_AssassinSuitCoin
 
 
@@ -94,6 +116,9 @@ Pickaxe_ID_138_Gnome
 Pickaxe_SlowBurn
 Pickaxe_IronBlaze
 Pickaxe_ID_074_SharpDresser
+Pickaxe_ID_014_WinterCamo
+Pickaxe_ID_359_CycloneMale
+Pickaxe_ID_475_ChOnePickaxe
 
 
 EID_Fresh
@@ -102,11 +127,15 @@ EID_TakeTheL
 EID_CycloneHeadBang
 EID_SpeedDial
 EID_JanuaryBop
+EID_Devotion
 EID_Laugh
 EID_Griddles
 EID_Coping
 EID_Cyclone
 EID_JanuaryBop
+EID_Punctual
+EID_Breakdance2
+EID_Jaywalking
 EID_PlayerEleven
 EID_HipHop01
 EID_GoodVibes
@@ -114,4 +143,6 @@ EID_SandwichBop
 EID_LetsPlay
 
 
+Glider_ID_314_SpaceChimpMale
 Glider_Warthog
+Glider_ID_244_ChOneGlider

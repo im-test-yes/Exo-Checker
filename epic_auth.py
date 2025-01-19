@@ -57,6 +57,7 @@ class LockerData:
         self.cosmetic_array = {}
         self.unlocked_styles = {}
         self.homebase_banners = {}
+        self.last_match = ''
 
     def to_dict(self):
         return {
@@ -147,7 +148,7 @@ class EpicGenerator:
         ) as response:
             data = await response.json()
             return data["code"]
-    
+        
     async def wait_for_device_code_completion(self, bot, message, code: str) -> Optional[EpicUser]:
         while True:
             try:
@@ -334,6 +335,35 @@ class EpicGenerator:
         
         return codes_data
     
+    async def get_homebase_profile(self, user: EpicUser) -> json:
+        # gets the save the world profile data
+        # REQUIRES usage of user.access_token as Authorization in headers
+
+        url = f'https://fngw-mcp-gc-livefn.ol.epicgames.com/fortnite/api/game/v2/profile/{user.account_id}/client/QueryPublicProfile'
+        querystring = { "profileId":"campaign", "rvn":"-1" }
+        payload = {}
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {user.access_token}"
+        }
+
+        profile_data = requests.request("POST", url, json=payload, headers=headers, params=querystring).json()
+        
+        return profile_data
+    
+    async def set_affiliate(self, user: EpicUser, affiliate_name: str):
+        url = f'https://fortnite-public-service-prod11.ol.epicgames.com/fortnite/api/game/v2/profile/{user.account_id}/client/SetAffiliateName?profileId=common_core'
+        payload = { "affiliateName": affiliate_name }
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {user.access_token}"
+        }
+        
+        affiliate_response = requests.request("POST", url, json=payload, headers=headers)
+        
+        if affiliate_response.status != 200:
+            print(f"Error setting affiliate name ({affiliate_response.status})")
+        
     async def get_locker_data(self, user: EpicUser) -> LockerData:
         # gets locker arrays
         # locker_categories - the locker categories we render
@@ -350,7 +380,18 @@ class EpicGenerator:
         popular_cosmetics = []
         if "profileChanges" not in athena_data:
             return LockerData()   
-
+        
+        # activity
+        account_level = athena_data.get("profileChanges", [{}])[0].get("profile", {}).get("stats", {}).get("attributes", {}).get("accountLevel", 1)
+        last_match_end = athena_data.get("profileChanges", [{}])[0].get("profile", {}).get("stats", {}).get("attributes", {}).get("last_match_end_datetime", "")
+        if last_match_end:
+            last_match_end_date = datetime.fromisoformat(last_match_end.replace("Z", "+00:00"))
+            days_since_last_match = (datetime.now(timezone.utc) - last_match_end_date).days
+            last_match_date_str = last_match_end_date.strftime("%d.%m.%y")
+            locker_data.last_match = f"{last_match_date_str} ({days_since_last_match} days ago)"
+        else:
+            locker_data.last_match = "800+ days ago"
+            
         # getting extra cosmetics  
         try:
             with open('exclusive.txt', 'r', encoding='utf-8') as f:
@@ -447,7 +488,7 @@ class EpicGenerator:
                         if cosmetic['id'] == "CID_DefaultOutfit":
                             # skipping default skin
                             continue
-                            
+                        
                         if category == 'AthenaDance' and cosmetic['type']['value'] != 'emote' and cosmetic['id'] not in exclusive_cosmetics:
                             # emote category, but isnt exclusive and isnt emote
                             continue
@@ -467,6 +508,30 @@ class EpicGenerator:
                                 if 'Mat1' in locker_data.unlocked_styles.get('cid_030_athena_commando_m_halloween', []):
                                     make_mythic = True               
                             
+                            # Aerial Assault Trooper
+                            if cosmetic['id'].lower() == 'cid_017_athena_commando_m':
+                                make_mythic = False
+                                if 'Stage2' in locker_data.unlocked_styles.get('cid_017_athena_commando_m', []):
+                                    make_mythic = True
+                                    
+                            # Renegade Raider
+                            if cosmetic['id'].lower() == 'cid_028_athena_commando_f':
+                                make_mythic = False
+                                if 'Mat3' in locker_data.unlocked_styles.get('cid_028_athena_commando_f', []):
+                                    make_mythic = True  
+                                    
+                            # Raider's Revenge
+                            if cosmetic['id'].lower() == 'pickaxe_lockjaw':
+                                make_mythic = False
+                                if 'Stage2' in locker_data.unlocked_styles.get('pickaxe_lockjaw', []):
+                                    make_mythic = True  
+                                    
+                            # Aerial Assault One
+                            if cosmetic['id'].lower() == 'glider_id_001':
+                                make_mythic = False
+                                if 'Stage2' in locker_data.unlocked_styles.get('glider_id_001', []):
+                                    make_mythic = True  
+                                    
                             # Stage 5 Omega Lights
                             if cosmetic['id'].lower() == 'cid_116_athena_commando_m_carbideblack':
                                 make_mythic = False
@@ -605,7 +670,7 @@ class EpicGenerator:
             for season in past_seasons
         )
 
-        curses = athena_data['profileChanges'][0]['profile']['stats']['attributes']
+        curses = athena_data.get("profileChanges", [{}])[0].get("profile", {}).get("stats", {}).get("attributes", {})
         cursesinfo = {
             'level': curses.get('level', 1),
             'book_level': curses.get('book_level', 1)

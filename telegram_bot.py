@@ -12,22 +12,26 @@ from PIL import Image, ImageDraw, ImageFont
 from epic_auth import EpicUser, EpicGenerator, EpicEndpoints
 from user import RiftUser
 from cosmetic import FortniteCosmetic
-from commands import command_start, command_help, command_login, command_style, command_badges, send_style_message, send_badges_message, available_styles, avaliable_badges
+from commands import command_start, command_help, command_login, command_style, command_badges, command_stats, send_style_message, send_badges_message, available_styles, avaliable_badges
 
 import epic_auth
 import cosmetic
 import commands
 import utils
 
+# your telegram bot's api token
+TELEGRAM_API_TOKEN = ""
+
 # locker categories we render in the checker
-telegram_bot = telebot.TeleBot(os.getenv(TELEGRAM_API_TOKEN))
+telegram_bot = telebot.TeleBot(TELEGRAM_API_TOKEN)
 
 telegram_bot.set_my_commands([
     telebot.types.BotCommand("/start", "Setup your user to start skinchecking."),
     telebot.types.BotCommand("/help", "Display Basic Info and the commands."),
     telebot.types.BotCommand("/login", "Skincheck your Epic Games account."),
     telebot.types.BotCommand("/style", "Customize your checker's style."),
-    telebot.types.BotCommand("/badges", "Toggle your owned badges.")
+    telebot.types.BotCommand("/badges", "Toggle your owned badges."),
+    telebot.types.BotCommand("/stats", "View your stats.")
 ])
 
 auth_code = None
@@ -50,6 +54,10 @@ def handle_style(message):
 @telegram_bot.message_handler(commands=['badges'])
 def handle_badges(message):
     asyncio.run(command_badges(telegram_bot, message))
+    
+@telegram_bot.message_handler(commands=['stats'])
+def handle_stats(message):
+    asyncio.run(command_stats(telegram_bot, message))
 
 @telegram_bot.callback_query_handler(func=lambda call: call.data.startswith("style_") or call.data.startswith("select_"))
 def handle_style_navigation(call):

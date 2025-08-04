@@ -10,7 +10,7 @@ from datetime import datetime
 from io import BytesIO
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from utils import mask_email, mask_account_id, bool_to_emoji, country_to_flag
-from user import RiftUser
+from user import ExoUser
 from cosmetic import FortniteCosmetic
 from epic_auth import EpicUser, EpicEndpoints, EpicGenerator, LockerData
 
@@ -83,7 +83,7 @@ class FortniteCache:
 fortnite_cache = FortniteCache()
 
 available_styles = [
-    {"ID": 0, "name": "Rift", "image": "img/styles/rift.png"},
+    {"ID": 0, "name": "Exo", "image": "img/styles/exo.png"},
     {"ID": 1, "name": "Easy", "image": "img/styles/easy.png"},
     {"ID": 2, "name": "Raika", "image": "img/styles/raika.png"},
     {"ID": 3, "name": "kayy", "image": "img/styles/kayy.png"},
@@ -148,7 +148,7 @@ def draw_gradient_text(gradient_type, draw, position, text, font, fill=(255, 255
         x += char_width
 
 
-def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
+def render_exo_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
     # calculating cosmetics per row
     cosmetic_per_row = 6
     total_cosmetics = len(arr)
@@ -167,7 +167,7 @@ def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:st
     thumbnail_height = 128
     image_width = int(cosmetic_per_row * thumbnail_width)
     image_height = int(thumbnail_height + 5 + thumbnail_width * num_rows + 180)
-    font_path = 'styles/rift/font.ttf'
+    font_path = 'styles/exo/font.ttf'
     font_size = 16
     font = ImageFont.truetype(font_path, font_size)
     image = Image.new('RGB', (image_width, image_height), (0, 0, 0))
@@ -259,12 +259,12 @@ def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:st
             x_offset = 32
             y_offset = 10
                 
-            new_img = Image.open(f'styles/rift/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
+            new_img = Image.open(f'styles/exo/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA')
             new_img.paste(photo, (x_offset, y_offset), mask=photo)
             photo = new_img
             photo.thumbnail((thumbnail_width, thumbnail_height))
         else:
-            new_img = Image.open(f'styles/rift/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
+            new_img = Image.open(f'styles/exo/rarity/{cosmetic.rarity_value.lower()}.png').convert('RGBA').resize(photo.size)    
             new_img.paste(photo, mask=photo)
             photo = new_img
             photo.thumbnail((thumbnail_width, thumbnail_height))
@@ -358,8 +358,8 @@ def render_rift_style(header:str, user_data: json, arr: list[str], nametosave:st
         image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
         offset_badge += 45
 
-    draw.text((174, image_height - 61), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow       
-    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    draw.text((174, image_height - 61), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow       
+    draw.text((170, image_height - 65), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
     image.save(nametosave)
     
 def render_easy_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
@@ -567,7 +567,7 @@ def render_easy_style(header:str, user_data: json, arr: list[str], nametosave:st
     draw.text((text_x, text_y), footer, font=font, fill=(255, 255, 255))
     
     # bot advertisment
-    footer2 = 't.me/RiftCheckerBot'
+    footer2 = 't.me/ExoCheckerBot'
     max_text_width = image_width - 20
     max_text_height = 40
     min_font_size = 15
@@ -809,8 +809,8 @@ def render_raika_style(header:str, user_data: json, arr: list[str], nametosave:s
         image.paste(alpha_badge, (offset_badge, image_height - 40 * 2 - 28), alpha_badge.convert("RGBA"))
         offset_badge += 45
    
-    draw.text((174, image_height - 61), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow     
-    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    draw.text((174, image_height - 61), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow     
+    draw.text((170, image_height - 65), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
     image.save(nametosave)
     
 def render_kayy_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
@@ -1017,8 +1017,8 @@ def render_kayy_style(header:str, user_data: json, arr: list[str], nametosave:st
      
     draw.text((offset_badge + 10, image_height - 40 * 2 - 26), '| {}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow   
     draw.text((offset_badge + 8, image_height - 40 * 2 - 28), '| {}'.format(current_date), font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
-    draw.text((174, image_height - 61), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow
-    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    draw.text((174, image_height - 61), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow
+    draw.text((170, image_height - 65), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
     image.save(nametosave)   
     
 def render_storm_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
@@ -1227,8 +1227,8 @@ def render_storm_style(header:str, user_data: json, arr: list[str], nametosave:s
       
     draw.text((offset_submit + 2, image_height - 40 * 2 - 26), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow  
     draw_gradient_text(user_data['gradient_type'], draw, (offset_submit, image_height - 40 * 2 - 28), '@{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 40))
-    draw.text((174, image_height - 61), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow
-    draw.text((170, image_height - 65), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
+    draw.text((174, image_height - 61), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(0, 0, 0)) # shadow
+    draw.text((170, image_height - 65), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 40), fill=(255, 255, 255))
     image.save(nametosave)
     
 def render_aqua_style(header:str, user_data: json, arr: list[str], nametosave:str) -> None:
@@ -1406,8 +1406,8 @@ def render_aqua_style(header:str, user_data: json, arr: list[str], nametosave:st
     draw.text((175, image_height - 118), '{}'.format(current_date), font=ImageFont.truetype(font_path, 30), fill=(255, 255, 255))  
     draw.text((179, image_height - 84), 'Submitted By: @{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 30), fill=(0, 0, 0)) # shadow 
     draw.text((175, image_height - 88), 'Submitted By: @{}'.format(user_data['username']), font=ImageFont.truetype(font_path, 30), fill=(255, 255, 255))
-    draw.text((179, image_height - 31), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 20), fill=(0, 0, 0)) # shadow     
-    draw.text((175, image_height - 55), "t.me/RiftCheckerBot", font=ImageFont.truetype(font_path, 20), fill=(255, 255, 255))
+    draw.text((179, image_height - 31), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 20), fill=(0, 0, 0)) # shadow     
+    draw.text((175, image_height - 55), "t.me/ExoCheckerBot", font=ImageFont.truetype(font_path, 20), fill=(255, 255, 255))
     image.save(nametosave)
     
     
@@ -1416,32 +1416,32 @@ def command_start(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message.from_user.id, message.from_user.username)
+    user = ExoUser(message.from_user.id, message.from_user.username)
     user_data = user.register()
     if not user_data:
         bot.reply_to(message, "You have already used this command, you don't have to use it anymore!")
         return
     
     bot.reply_to(message, f'''
-What is Rift Checker Bot?
-> Rift checker is provably safe open-sourced telegram fortnite skin checker bot, it visualises your locker into an image and sends it back to you, aswell it does display info about your account.
+What is Exo-Checker Bot?
+> Exo-Checker is provably safe open-sourced telegram fortnite skin checker bot, it visualises your locker into an image and sends it back to you, aswell it does display info about your account.
 
-Why should we use Rift and not other skincheckers?
+Why should we use Exo and not other skincheckers?
 > Unlike majority of skincheckers, we make NO profit from our service, the bot is entirely hosted by choice, as well unlike Raika we DO NOT store your account information anywhere, for security reasons all account credentials are private and inaccessible.
 
 How do i know you're not stealing our accounts?
-> Rift checker is open-sourced bot, if you don't believe that it's safe, you could check the source code yourself to make sure that rift is completely safe!
-> Rift Checker's Official Github Repository: https://github.com/Debugtopia/RiftCheckerBot
-> Yes, you could use rift's source code to create your own bot aswell! just make to credit @xhexago for his work :)
+> Exo-Checker is open-sourced bot, if you don't believe that it's safe, you could check the source code yourself to make sure that Exo is completely safe!
+> Exo-Checker's Official Github Repository: https://github.com/im-test-yes/Exo-Checker
+> Yes, you could use Exo's source code to create your own bot aswell! just make to credit @xhexago for his work :)
 
 > Other open sourced projects by @xhexago:
     - GrowBase(Growtopia Private Server - Game Server source code): https://github.com/Debugtopia/GrowBase
 
-Who are the developers of Rift Checker Bot?
-> Rift is a single-handedly developed by @xhexago and nobody else.
+Who are the developers of Exo-Checker Bot?
+> Exo is a single-handedly developed by @xhexago and nobody else.
 
 Commands:
-/start - register to rift checker
+/start - register to Exo-Checker
 /help - displays info about the bot, it's commands.
 /login - skincheck your epic games fortnite account.
 /style - choose your style based on your need, we support multiple skincheck styles.
@@ -1450,20 +1450,20 @@ Commands:
 ''')
     
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/Debugtopia/RiftCheckerBot")],
-        [InlineKeyboardButton("🔗 Stock Channel", url="https://t.me/riftstock"),
-         InlineKeyboardButton("🔗 News Channel", url="https://t.me/RiftCheckerNews")]
+        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/im-test-yes/Exo-Checker")],
+        [InlineKeyboardButton("🔗 Stock Channel", url="https://t.me/exostock"),
+         InlineKeyboardButton("🔗 News Channel", url="https://t.me/ExoCheckerNews")]
     ])
 
     bot.send_message(
         chat_id=message.chat.id,
         text=(
-            "Welcome to Rift Checker Bot!\n"
+            "Welcome to Exo-Checker Bot!\n"
             "Developed by @xhexago\n"
             "Interested in purchasing Fortnite accounts?\n"
-            "- @riftstock\n\n"
-            "Rift Checker Bot's News channel:\n"
-            "- @riftcheckernews"
+            "- @exostock\n\n"
+            "Exo-Checker Bot's News channel:\n"
+            "- @exocheckernews"
         ),
         reply_markup=markup,
         parse_mode="Markdown"
@@ -1471,25 +1471,25 @@ Commands:
     
 def command_help(bot, message):
     bot.reply_to(message, f'''
-What is Rift Checker Bot?
-> Rift checker is provably safe open-sourced telegram fortnite skin checker bot, it visualises your locker into an image and sends it back to you, aswell it does display info about your account.
+What is Exo-Checker Bot?
+> Exo-Checker is provably safe open-sourced telegram fortnite skin checker bot, it visualises your locker into an image and sends it back to you, aswell it does display info about your account.
 
-Why should we use Rift and not other skincheckers?
+Why should we use Exo and not other skincheckers?
 > Unlike majority of skincheckers, we make NO profit from our service, the bot is entirely hosted by choice, as well unlike Raika we DO NOT store your account information anywhere, for security reasons all account credentials are private and inaccessible.
 
 How do i know you're not stealing our accounts?
-> Rift checker is open-sourced bot, if you don't believe that it's safe, you could check the source code yourself to make sure that rift is completely safe!
-> Rift Checker's Official Github Repository: https://github.com/Debugtopia/RiftCheckerBot
-> Yes, you could use rift's source code to create your own bot aswell! just make to credit @xhexago for his work :)
+> Exo-Checker is open-sourced bot, if you don't believe that it's safe, you could check the source code yourself to make sure that Exo is completely safe!
+> Exo-Checker's Official Github Repository: https://github.com/im-test-yes/Exo-Checker
+> Yes, you could use Exo's source code to create your own bot aswell! just make to credit @xhexago for his work :)
 
 > Other open sourced projects by @xhexago:
     - GrowBase(Growtopia Private Server - Game Server source code): https://github.com/Debugtopia/GrowBase
 
-Who are the developers of Rift Checker Bot?
-> Rift is a single-handedly developed by @xhexago and nobody else.
+Who are the developers of Exo-Checker Bot?
+> Exo is a single-handedly developed by @xhexago and nobody else.
 
 Commands:
-/start - register to rift checker
+/start - register to Exo-Checker
 /help - displays info about the bot, it's commands.
 /login - skincheck your epic games fortnite account.
 /style - choose your style based on your need, we support multiple skincheck styles.
@@ -1498,20 +1498,20 @@ Commands:
 ''')
     
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/Debugtopia/RiftCheckerBot")],
-        [InlineKeyboardButton("🔗 Stock Channel", url="https://t.me/riftstock"),
-         InlineKeyboardButton("🔗 News Channel", url="https://t.me/RiftCheckerNews")]
+        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/im-test-yes/Exo-Checker")],
+        [InlineKeyboardButton("🔗 Stock Channel", url="https://t.me/exostock"),
+         InlineKeyboardButton("🔗 News Channel", url="https://t.me/ExoCheckerNews")]
     ])
 
     bot.send_message(
         chat_id=message.chat.id,
         text=(
-            "Welcome to Rift Checker Bot!\n"
+            "Welcome to Exo-Checker Bot!\n"
             "Developed by @xhexago\n"
             "Interested in purchasing Fortnite accounts?\n"
-            "- @riftstock\n\n"
-            "Rift Checker Bot's News channel:\n"
-            "- @riftcheckernews"
+            "- @exostock\n\n"
+            "Exo-Checker Bot's News channel:\n"
+            "- @exocheckernews"
         ),
         reply_markup=markup,
         parse_mode="Markdown"
@@ -1521,7 +1521,7 @@ async def command_login(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message.from_user.id, message.from_user.username)
+    user = ExoUser(message.from_user.id, message.from_user.username)
     user_data = user.load_data()
     if user_data == {}:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
@@ -1799,8 +1799,8 @@ Activity:
         elif category == 'AthenaPopular':
             header = 'Popular'
             
-        if user_data['style'] == 0: # rift style
-            render_rift_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
+        if user_data['style'] == 0: # exo style
+            render_exo_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
             
         elif user_data['style'] == 1: # easy style
             render_easy_style(header, user_data, locker_data.cosmetic_array[category], f'{save_path}/{category}.png')
@@ -1844,20 +1844,20 @@ Activity:
     
     # button-embed message
     markup = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/Debugtopia/RiftCheckerBot")],
-        [InlineKeyboardButton("🔗 Rift Stock", url="https://t.me/riftstock"),
-         InlineKeyboardButton("🔗 News Channel", url="https://t.me/RiftCheckerNews")]
+        [InlineKeyboardButton("🔗 Source Code", url="https://github.com/im-test-yes/Exo-Checker")],
+        [InlineKeyboardButton("🔗 Exo Stock", url="https://t.me/exostock"),
+         InlineKeyboardButton("🔗 News Channel", url="https://t.me/ExoCheckerNews")]
     ])
 
     bot.send_message(
         chat_id=message.chat.id,
         text=(
-            "Thanks for using Rift Checker Bot!\n"
+            "Thanks for using Exo-Checker Bot!\n"
             "Developed by @xhexago\n"
             "Interested in purchasing Fortnite accounts?\n"
-            "- @riftstock\n\n"
-            "Rift Checker Bot's News channel:\n"
-            "- @riftcheckernews"
+            "- @exostock\n\n"
+            "Exo-Checker Bot's News channel:\n"
+            "- @exocheckernews"
         ),
         reply_markup=markup,
         parse_mode="Markdown"
@@ -1868,7 +1868,7 @@ async def command_style(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message.from_user.id, message.from_user.username)
+    user = ExoUser(message.from_user.id, message.from_user.username)
     user_data = user.load_data()
     if not user_data:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
@@ -1881,7 +1881,7 @@ async def command_badges(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message.from_user.id, message.from_user.username)
+    user = ExoUser(message.from_user.id, message.from_user.username)
     user_data = user.load_data()
     if not user_data:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
@@ -1903,15 +1903,15 @@ async def command_stats(bot, message):
     if message.chat.type != "private":
         return
     
-    user = RiftUser(message.from_user.id, message.from_user.username)
+    user = ExoUser(message.from_user.id, message.from_user.username)
     user_data = user.load_data()
     if not user_data:
         bot.reply_to(message, "You haven't setup your user yet, please use /start before skinchecking!")
         return
     
-    style = 'rift'
+    style = 'exo'
     if user_data['style'] == 0:
-        style = 'rift'
+        style = 'exo'
     elif user_data['style'] == 1:
         style = 'easy'
     elif user_data['style'] == 2:

@@ -10,7 +10,7 @@ from telebot import types
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from PIL import Image, ImageDraw, ImageFont
 from epic_auth import EpicUser, EpicGenerator, EpicEndpoints
-from user import RiftUser
+from user import ExoUser
 from cosmetic import FortniteCosmetic
 from commands import command_start, command_help, command_login, command_style, command_badges, command_stats, send_style_message, send_badges_message, available_styles, avaliable_badges
 
@@ -62,7 +62,7 @@ def handle_stats(message):
 @telegram_bot.callback_query_handler(func=lambda call: call.data.startswith("style_") or call.data.startswith("select_"))
 def handle_style_navigation(call):
     data = call.data
-    user = RiftUser(call.from_user.id, call.from_user.username)
+    user = ExoUser(call.from_user.id, call.from_user.username)
     user_data = user.load_data()
 
     if not user_data:
@@ -84,7 +84,7 @@ def handle_style_navigation(call):
 @telegram_bot.callback_query_handler(func=lambda call: call.data.startswith("badge_") or call.data.startswith("toggle_"))
 def handle_badge_navigation(call):
     data = call.data
-    user = RiftUser(call.from_user.id, call.from_user.username)
+    user = ExoUser(call.from_user.id, call.from_user.username)
     user_data = user.load_data()
 
     if not user_data:
@@ -107,6 +107,6 @@ def handle_badge_navigation(call):
         telegram_bot.delete_message(call.message.chat.id, call.message.message_id)
         send_badges_message(telegram_bot, call.message.chat.id, badge_index, user_data)
 
-print("starting rift checker...")          
+print("starting Exo-Checker...")          
 if __name__ == '__main__':
     telegram_bot.infinity_polling()

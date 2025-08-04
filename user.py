@@ -7,7 +7,7 @@ from telebot import types
 # when something new gets added, we increase the version by 1
 TELEGRAM_USER_DATA_VERSION = 0
 
-class RiftUser:
+class ExoUser:
     def __init__(self, userID: int, username: str):
         self.userID: int = userID
         self.username: str = username
